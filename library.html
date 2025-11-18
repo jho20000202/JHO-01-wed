@@ -564,6 +564,35 @@ window.addEventListener("scroll", async () => {
 });
 
 /* ==========================================
+   Step 12：📥 下載 CSV 模板（已修好）
+========================================== */
+document.getElementById("downloadCSV").addEventListener("click", () => {
+
+    const BOM = "\uFEFF"; // Excel UTF-8
+
+    const header =
+        "構件編號,構件規格,構件材質,構件重量,構件位置,構件數量\n";
+
+    const sample =
+        "UV0E3,PL25*500*650,SN490BM,89,32-33/F,1\n" +
+        "UV0V1,RH300*300*10*15*5836.8,SN490BM,576,32-33/H,1\n";
+
+    const content = BOM + header + sample;
+
+    const blob = new Blob([content], { type:"text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "構件清單模板.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
+});
+
+/* ==========================================
    🚀 初始化（載 metadata → 第一批構件）
 ========================================== */
 (async () => {
