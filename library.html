@@ -10,9 +10,10 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
+/* ====== 狀態點 ====== */
 .status-dot {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     display: inline-block;
     margin-right: 6px;
@@ -23,15 +24,46 @@
 .dot-orange { background:#e67e22; }
 .dot-green { background:#2ecc71; }
 
+/* ====== 構件卡片（可展開） ====== */
 .item-card {
     background:#1c2433;
-    padding:12px;
-    margin:10px 0;
-    border-radius:12px;
+    padding:14px;
+    margin:12px 0;
+    border-radius:14px;
     color:#fff;
+    cursor:pointer;
+    transition:0.25s;
+    border:1px solid #2a2f3a;
 }
-.item-id { font-size:18px; font-weight:700; }
-.item-sub { font-size:14px; color:#bbb; }
+.item-card:hover {
+    background:#242d40;
+}
+
+.item-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.item-id {
+    font-size:18px;
+    font-weight:700;
+}
+
+.item-status-dot {
+    width:14px;
+    height:14px;
+    border-radius:50%;
+}
+
+/* ====== 隱藏區（展開內容） ====== */
+.item-details {
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid #2a2f3a;
+    display:none;
+}
+.item-sub { font-size:14px; color:#bbb; margin:4px 0; }
 </style>
 </head>
 
@@ -46,7 +78,7 @@
 
 <div class="screen-card">
 
-    <!-- 🔵 構件狀態切換 -->
+    <!-- 🟦 構件狀態 -->
     <div class="section-title">構件狀態</div>
 
     <div class="row" style="margin-bottom:12px;">
@@ -63,10 +95,10 @@
     <!-- 📤 匯入 Excel 自動解析 -->
     <div class="section-title">匯入 Excel / CSV</div>
 
-    <!-- 隱藏檔案選擇器（不顯示） -->
+    <!-- 隱藏檔案選擇器 -->
     <input type="file" id="filePicker" accept=".xlsx,.xls,.csv" style="display:none">
 
-    <!-- 使用者按的按鈕 -->
+    <!-- 顯示可按的按鈕 -->
     <div id="importBtn" class="primary-btn full">匯入 Excel / CSV</div>
 
     <!-- 📥 下載 CSV 模板 -->
@@ -82,6 +114,81 @@
 
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ==========================================
+   📌 Supabase 初始化（第 3 段會補齊）
+========================================== */
+
+
+/* ==========================================
+   📌 依狀態決定顏色點
+========================================== */
+function statusToDot(status) {
+    switch (status) {
+        case "grey": return "dot-grey";
+        case "yellow": return "dot-yellow";
+        case "orange": return "dot-orange";
+        case "green": return "dot-green";
+        default: return "dot-grey";
+    }
+}
+
+/* ==========================================
+   📌 Step 3：渲染構件列表（含展開詳細資訊）
+========================================== */
+function renderList() {
+    const list = document.getElementById("itemList");
+    const query = document.getElementById("searchBox").value.trim();
+
+    list.innerHTML = "";
+
+    components.forEach(c => {
+        const status = getStatus(c.item_id);
+
+        // 🔍 搜尋過濾
+        if (query && !(
+            c.item_id.includes(query) ||
+            (c.spec || "").includes(query) ||
+            (c.position || "").includes(query)
+        )) return;
+
+        // 🔵 產生可展開卡片 HTML
+        const card = document.createElement("div");
+        card.className = "item-card";
+
+        card.innerHTML = `
+            <div class="item-header">
+                <div class="item-id">${c.item_id}</div>
+                <div class="item-status-dot ${statusToDot(status)}"></div>
+            </div>
+
+            <div class="item-details">
+                <div class="item-sub">規格：${c.spec || ""}</div>
+                <div class="item-sub">材質：${c.material || ""}</div>
+                <div class="item-sub">重量：${c.weight || ""}</div>
+                <div class="item-sub">位置：${c.position || ""}</div>
+                <div class="item-sub">數量：${c.qty || ""}</div>
+                <div class="item-sub">
+                    狀態：${
+                        status==="grey" ? "未進料" :
+                        status==="yellow" ? "預定中" :
+                        status==="orange" ? "已進料" : "已使用"
+                    }
+                </div>
+            </div>
+        `;
+
+        // 🔽 點擊展開/收合
+        card.addEventListener("click", () => {
+            const detail = card.querySelector(".item-details");
+            detail.style.display = detail.style.display === "block" ? "none" : "block";
+        });
+
+        list.appendChild(card);
+    });
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 /* ==========================================
@@ -96,12 +203,12 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ==========================================
    📌 全域資料
 ========================================== */
-let components = []; 
-let planned = [];    
-let used = [];       
+let components = [];  // components_library
+let planned = [];     // planned_items
+let used = [];        // today_records
 
 /* ==========================================
-   🟢 Step 1：讀取資料
+   🟢 Step 1：讀取所有資料
 ========================================== */
 async function loadData() {
     const { data: lib } = await db.from("components_library").select("*");
@@ -116,54 +223,18 @@ async function loadData() {
 }
 
 /* ==========================================
-   📌 Step 2：判斷構件狀態（四色）
+   📌 Step 2：四色狀態邏輯
 ========================================== */
 function getStatus(item_id) {
     const plan = planned.find(p => p.item_id === item_id);
     const useRec = used.find(u => u.item_id === item_id);
 
-    if (!plan && !useRec) return "grey";
-    if (plan && plan.status === "planned") return "yellow";
-    if (plan && plan.status === "received" && !useRec) return "orange";
-    if (plan && plan.status === "received" && useRec) return "green";
+    if (!plan && !useRec) return "grey";           // 未進料
+    if (plan && plan.status === "planned") return "yellow"; // 預定中
+    if (plan && plan.status === "received" && !useRec) return "orange"; // 已進料
+    if (plan && plan.status === "received" && useRec) return "green";   // 已使用
 
     return "grey";
-}
-
-/* ==========================================
-   🖥️ Step 3：渲染構件列表
-========================================== */
-function renderList() {
-    const list = document.getElementById("itemList");
-    const query = document.getElementById("searchBox").value.trim();
-
-    list.innerHTML = "";
-
-    components.forEach(c => {
-        const status = getStatus(c.item_id);
-
-        if (query && !(
-            c.item_id.includes(query) ||
-            (c.spec || "").includes(query) ||
-            (c.position || "").includes(query)
-        )) return;
-
-        list.innerHTML += `
-            <div class="item-card">
-                <div class="item-id">${c.item_id}</div>
-                <div class="item-sub">${c.spec || ""}</div>
-                <div class="item-sub">位置：${c.position || ""}</div>
-                <div class="item-sub">重量：${c.weight || ""} / 材質：${c.material || ""}</div>
-                <div class="item-sub">
-                    狀態：${
-                        status==="grey" ? "未進料" :
-                        status==="yellow" ? "預定中" :
-                        status==="orange" ? "已進料" :
-                        "已使用"
-                    }
-                </div>
-            </div>`;
-    });
 }
 
 /* ==========================================
@@ -172,7 +243,7 @@ function renderList() {
 document.getElementById("searchBox").addEventListener("input", renderList);
 
 /* ==========================================
-   📤 Step 4：匯入 Excel / CSV
+   📤 匯入 Excel / CSV
 ========================================== */
 document.getElementById("importBtn").addEventListener("click", () => {
     document.getElementById("filePicker").click();
@@ -192,7 +263,7 @@ document.getElementById("filePicker").addEventListener("change", async (e) => {
         if (ext === "csv") {
             json = csvToJSON(new TextDecoder("utf-8").decode(new Uint8Array(buffer)));
         } else {
-            const wb = XLSX.read(buffer, { type:"array" });
+            const wb = XLSX.read(buffer, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             json = XLSX.utils.sheet_to_json(ws);
         }
@@ -208,7 +279,6 @@ document.getElementById("filePicker").addEventListener("change", async (e) => {
     }
 
     const required = ["構件編號","構件規格","構件材質","構件重量","構件位置","構件數量"];
-
     for (let r of required) {
         if (!json[0][r]) return alert("缺少欄位：" + r);
     }
@@ -236,7 +306,7 @@ document.getElementById("filePicker").addEventListener("change", async (e) => {
 });
 
 /* ==========================================
-   📥 CSV 模板下載
+   📥 CSV 模板下載（UTF-8）
 ========================================== */
 document.getElementById("downloadCSV").addEventListener("click", () => {
     const header = "構件編號,構件規格,構件材質,構件重量,構件位置,構件數量\n";
@@ -244,7 +314,8 @@ document.getElementById("downloadCSV").addEventListener("click", () => {
         "UV0E3,PL25*500*650,SN490BM,89,32-33/F,1\n" +
         "UV0V1,RH300*300*10*15*5836.8,SN490BM,576,32-33/H,1\n";
 
-    const blob = new Blob([header + sample], { type:"text/csv;charset=utf-8;" });
+    const BOM = header + sample;
+    const blob = new Blob(["\uFEFF" + BOM], { type: "text/csv;charset=utf-8;" });  // UTF-8 BOM
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -253,16 +324,18 @@ document.getElementById("downloadCSV").addEventListener("click", () => {
     a.click();
 });
 
-/* CSV → JSON */
+/* ==========================================
+   📄 CSV → JSON
+========================================== */
 function csvToJSON(csv) {
-    const lines = csv.split("\n").map(l=>l.trim()).filter(l=>l);
+    const lines = csv.split("\n").map(l => l.trim()).filter(l => l);
     const headers = lines[0].split(",");
     const result = [];
 
-    for (let i=1;i<lines.length;i++) {
+    for (let i = 1; i < lines.length; i++) {
         const obj = {};
         const row = lines[i].split(",");
-        headers.forEach((h,idx)=> obj[h] = row[idx] || "");
+        headers.forEach((h, idx) => obj[h] = row[idx] || "");
         result.push(obj);
     }
     return result;
@@ -272,6 +345,5 @@ function csvToJSON(csv) {
    🚀 初始化
 ========================================== */
 loadData();
+
 </script>
-</body>
-</html>
