@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>預計進料登記</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <style>
+        body { padding: 20px; }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .back-btn {
+            padding: 10px 20px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .input-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: #2a2b31;
+            border: none;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .primary-btn {
+            width: 100%;
+            padding: 14px;
+            text-align: center;
+            background: #3d7bff;
+            border-radius: 14px;
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 22px;
+            cursor: pointer;
+        }
+
+        .plan-card {
+            background: #2a2b31;
+            padding: 14px;
+            border-radius: 14px;
+            color: #fff;
+            margin-bottom: 14px;
+        }
+        .plan-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .plan-time {
+            font-size: 14px;
+            color: #bbb;
+            margin-bottom: 12px;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .location-select {
+            flex: 1;
+            padding: 12px;
+            background: #33353d;
+            color: #fff;
+            border-radius: 12px;
+            border: none;
+        }
+        .delete-btn {
+            background: #d9534f;
+            padding: 12px 18px;
+            border-radius: 12px;
+            color: #fff;
+            cursor: pointer;
+        }
+        .mark-btn {
+            background: #3d7bff;
+            padding: 12px 18px;
+            border-radius: 12px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .hint {
+            color: #bbb;
+            margin-bottom: 12px;
+        }
+    </style>
+
+</head>
+<body>
+
+    <div class="header-row">
+        <div class="header-title">預計進料登記</div>
+        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
+    </div>
+
+    <input id="itemId" class="input-box" placeholder="構件編號，例如 A-001" />
+
+    <input id="plannedDate" class="input-box" placeholder="預計到貨日期 YYYY-MM-DD" />
+
+    <div class="primary-btn" onclick="submitPlan()">送出</div>
+
+    <div class="hint">目前預計進料清單</div>
+
+    <div id="planList"></div>
+
+    <script src="back.js"></script>
+
+    <script>
+        let plannedItems = [
+            { id: "D-305", time: "2025-05-10", location: "" },
+            { id: "E-118", time: "2025-05-11", location: "" }
+        ];
+
+        renderList();
+
+        function submitPlan() {
+            const id = document.getElementById("itemId").value.trim();
+            const date = document.getElementById("plannedDate").value.trim();
+
+            if (!id || !date) {
+                alert("請填寫構件編號與日期");
+                return;
+            }
+
+            plannedItems.push({ id, time: date, location: "" });
+
+            document.getElementById("itemId").value = "";
+            document.getElementById("plannedDate").value = "";
+
+            renderList();
+        }
+
+        function renderList() {
+            const box = document.getElementById("planList");
+            box.innerHTML = "";
+
+            plannedItems.forEach((p, index) => {
+                const card = document.createElement("div");
+                card.className = "plan-card";
+
+                card.innerHTML = `
+                    <div class="plan-title">${p.id}</div>
+                    <div class="plan-time">${p.time}</div>
+
+                    <div class="row">
+                        <select class="location-select" onchange="setLocation(${index}, this.value)">
+                            <option value="">選擇位置</option>
+                            <option>32-33/F</option>
+                            <option>32-33/G</option>
+                            <option>32-33/H</option>
+                        </select>
+
+                        <div class="delete-btn" onclick="deletePlan(${index})">刪除</div>
+                        <div class="mark-btn" onclick="markReceived(${index})">標記已收</div>
+                    </div>
+                `;
+
+                box.appendChild(card);
+            });
+        }
+
+        function setLocation(i, v) {
+            plannedItems[i].location = v;
+        }
+
+        function deletePlan(i) {
+            if (!confirm("確定要刪除？")) return;
+            plannedItems.splice(i, 1);
+            renderList();
+        }
+
+        function markReceived(i) {
+            alert(plannedItems[i].id + " 已標記為已收（等待 Supabase）");
+        }
+    </script>
+
+</body>
+</html>
