@@ -5,15 +5,24 @@
 <title>構件庫</title>
 <link rel="stylesheet" href="styles.css">
 
-<!-- XLSX 解析工具 -->
+<!-- 先載入 Supabase（非常重要） -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Excel/CSV 解析 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
+/* -----------------------
+   Supabase 設定
+------------------------*/
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* -----------------------
+   全域資料
+------------------------*/
 let allComponents = [];
 let plannedMap = {};
 let usedMap = {};
@@ -21,10 +30,20 @@ let usedMap = {};
 window.onload = async () => {
     await loadData();
 };
+
+/* -----------------------
+   從 Supabase 抓資料
+------------------------*/
 async function loadData() {
+    console.log("Loading data...");
+
     const c = await sb.from("components_library").select("*");
     const p = await sb.from("planned_items").select("item_id,status");
     const u = await sb.from("today_records").select("item_id,status");
+
+    console.log("components:", c.data);
+    console.log("planned:", p.data);
+    console.log("used:", u.data);
 
     allComponents = c.data || [];
 
@@ -37,24 +56,32 @@ async function loadData() {
     renderList();
 }
 
+
+/* -----------------------
+   顏色狀態
+------------------------*/
 function getStatusColor(item) {
     const id = item.item_id;
 
     if (!plannedMap[id] && !usedMap[id])
-        return "#7a7a7a";   // 未進料灰
+        return "#7a7a7a"; // 未進料
 
     if (plannedMap[id] === "planned")
-        return "#f1c40f";   // 預定中黃
+        return "#f1c40f"; // 預定中
 
     if (plannedMap[id] === "received" && !usedMap[id])
-        return "#e67e22";   // 已進料橘
+        return "#e67e22"; // 已進料
 
     if (plannedMap[id] === "received" && usedMap[id])
-        return "#2ecc71";   // 已使用綠
+        return "#2ecc71"; // 已使用
 
     return "#7a7a7a";
 }
 
+
+/* -----------------------
+   渲染構件列表
+------------------------*/
 function renderList() {
     const container = document.getElementById("list");
     container.innerHTML = "";
@@ -80,6 +107,10 @@ function renderList() {
     });
 }
 
+
+/* -----------------------
+   下載 CSV 模板（UTF-8 BOM）
+------------------------*/
 function downloadCSVTemplate() {
     const csv =
 `構件編號,構件規格,構件材質,構件重量,構件位置,構件數量
@@ -92,6 +123,10 @@ UV0E3,PL25*500*650,SN490BM,89,32-33/F,1`;
     link.click();
 }
 
+
+/* -----------------------
+   匯入 Excel / CSV
+------------------------*/
 async function uploadExcel() {
     const input = document.getElementById("fileInput");
     if (!input.files.length) return alert("請選擇 Excel 或 CSV 檔案");
@@ -117,13 +152,12 @@ async function uploadExcel() {
 
         for (const it of items) {
             if (!it.item_id) {
-                alert("缺少構件編號，請下載模板確認格式");
+                alert("缺少必要欄位：構件編號\n請下載模板確認格式");
                 return;
             }
         }
 
         await sb.from("components_library").upsert(items);
-
         alert("匯入成功！");
         await loadData();
     };
@@ -131,14 +165,15 @@ async function uploadExcel() {
     reader.readAsArrayBuffer(file);
 }
 </script>
-
 </head>
+
 <body>
 
 <div class="top-bar">
     <div class="top-bar-title">構件庫</div>
     <button class="top-btn" onclick="location.href='index.html'">返回主畫面</button>
 </div>
+
 
 <div class="screen-card">
     <div class="section-title">上傳 Excel / CSV</div>
@@ -153,9 +188,6 @@ async function uploadExcel() {
     <div class="section-title">構件清單</div>
     <div id="list"></div>
 </div>
-
-<!-- Supabase client -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 </body>
 </html>
