@@ -37,7 +37,10 @@
     justify-content:space-between;
     align-items:center;
 }
-.item-id { font-size:18px; font-weight:700; }
+.item-id {
+    font-size:18px;
+    font-weight:700;
+}
 
 .status-text {
     font-size:14px;
@@ -122,6 +125,7 @@
 }
 </style>
 </head>
+
 <body>
 
 <div class="top-bar">
@@ -175,7 +179,6 @@
 <div class="screen-card">
     <div class="section-title">構件清單</div>
 
-    <!-- 內容清單 -->
     <div id="itemList"></div>
 
     <!-- Loading 圈圈 -->
@@ -185,7 +188,6 @@
         </svg>
     </div>
 
-    <!-- 載到最後的提示 -->
     <div id="loadMessage">已載入全部構件</div>
 </div>
 
@@ -195,9 +197,9 @@
         <path d="M12 4l-8 8h5v8h6v-8h5z"></path>
     </svg>
 </div>
-
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 /* ==========================================
    🔧 Supabase 初始化
@@ -211,26 +213,26 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ==========================================
    📌 全域資料
 ========================================== */
-let planned = [];
-let used = [];
+let planned = [];  
+let used = [];     
 
-/* Infinite Scroll 控制 */
-let offset = 0;          // 起始位置
-let limit = 80;          // 每批 80
-let loading = false;     // 防重複
-let allLoaded = false;   // 全部載完？
+/* Infinite Scroll 狀態 */
+let offset = 0;         // 下一批起點
+let limit = 80;         // 每批 80 筆
+let loading = false;    // 避免多次觸發
+let allLoaded = false;  // 是否已載完
 
-/* 排序狀態（保持在前端） */
-let currentSort = "id_asc";
+/* 排序/分類狀態（前端控制） */
+let currentSort   = "id_asc";
 let currentFilter = "all";
 
 /* DOM */
-const itemList = document.getElementById("itemList");
-const loadMessage = document.getElementById("loadMessage");
+const itemList       = document.getElementById("itemList");
+const loadMessage    = document.getElementById("loadMessage");
 const loadingSpinner = document.getElementById("loadingSpinner");
 
 /* ==========================================
-   Step 1：讀取 planned_items / today_records
+   Step 1：載入 planned_items / today_records
 ========================================== */
 async function loadMetaData() {
     const { data: plan } = await db.from("planned_items").select("*");
@@ -241,30 +243,35 @@ async function loadMetaData() {
 }
 
 /* ==========================================
-   Step 2：讀取構件（依排序＋分批）
+   Step 2：依排序分批載入構件
 ========================================== */
 async function loadNextBatch() {
     if (loading || allLoaded) return;
 
     loading = true;
-    loadingSpinner.classList.add("active");
+    loadingSpinner.style.display = "block";
 
-    // 基本查詢
     let query = db
         .from("components_library")
         .select("*")
         .range(offset, offset + limit - 1);
 
-    // 依排序方式
-    if (currentSort === "id_asc")       query = query.order("item_id", { ascending: true });
-    else if (currentSort === "id_desc") query = query.order("item_id", { ascending: false });
-    else if (currentSort === "position_asc")  query = query.order("position", { ascending: true });
-    else if (currentSort === "position_desc") query = query.order("position", { ascending: false });
-    else if (currentSort === "status_order")  query = query.order("item_id", { ascending: true });
+    /* 排序方式（後端排序） */
+    if (currentSort === "id_asc") {
+        query = query.order("item_id", { ascending: true });
+    } else if (currentSort === "id_desc") {
+        query = query.order("item_id", { ascending: false });
+    } else if (currentSort === "position_asc") {
+        query = query.order("position", { ascending: true });
+    } else if (currentSort === "position_desc") {
+        query = query.order("position", { ascending: false });
+    } else if (currentSort === "status_order") {
+        query = query.order("item_id", { ascending: true });
+    }
 
     const { data, error } = await query;
 
-    loadingSpinner.classList.remove("active");
+    loadingSpinner.style.display = "none";
 
     if (error) {
         console.error(error);
@@ -289,13 +296,13 @@ async function loadNextBatch() {
    Step 3：四色狀態判斷
 ========================================== */
 function getStatus(item_id) {
-    const plan = planned.find(p => p.item_id === item_id);
+    const plan   = planned.find(p => p.item_id === item_id);
     const useRec = used.find(u => u.item_id === item_id);
 
-    if (!plan && !useRec) return "grey"; 
-    if (plan && plan.status === "planned") return "yellow";  
-    if (plan && plan.status === "received" && !useRec) return "orange"; 
-    if (plan && plan.status === "received" && useRec) return "green";   
+    if (!plan && !useRec) return "grey";                     // 未進料
+    if (plan && plan.status === "planned") return "yellow";  // 預定中
+    if (plan && plan.status === "received" && !useRec) return "orange"; // 已進料
+    if (plan && plan.status === "received" && useRec) return "green";   // 已使用
 
     return "grey";
 }
@@ -313,25 +320,25 @@ function statusDot(s) {
            s==="orange" ? "dot-orange" :
            "dot-green";
 }
-
 /* ==========================================
    Step 4：渲染一批構件
 ========================================== */
 function renderBatch(records) {
 
     records.forEach(c => {
-
         const status = getStatus(c.item_id);
 
-        // 依狀態過濾
+        // 狀態分類過濾
         if (currentFilter !== "all" && status !== currentFilter) return;
 
         const cardId = "details_" + c.item_id;
 
-        const cardHTML = `
+        const html = `
             <div class="item-card" onclick="toggleDetails('${cardId}')">
+
                 <div class="item-header">
                     <div class="item-id">${c.item_id}</div>
+
                     <div class="status-text">
                         <span class="status-dot ${statusDot(status)}"></span>
                         ${statusText(status)}
@@ -345,15 +352,16 @@ function renderBatch(records) {
                     <div class="item-sub">重量：${c.weight || ""}</div>
                     <div class="item-sub">數量：${c.qty || 1}</div>
                 </div>
+
             </div>
         `;
 
-        itemList.insertAdjacentHTML("beforeend", cardHTML);
+        itemList.insertAdjacentHTML("beforeend", html);
     });
 }
 
 /* ==========================================
-   Step 5：卡片展開/收合
+   Step 5：卡片展開 / 收合
 ========================================== */
 function toggleDetails(id) {
     const el = document.getElementById(id);
@@ -364,20 +372,21 @@ function toggleDetails(id) {
         btn.style.bottom = "22px";
     } else {
         el.style.display = "block";
-        btn.style.bottom = "90px";
+        btn.style.bottom = "90px"; // 避免被擋住
     }
 }
+
 /* ==========================================
-   🔍 Step 6：搜尋模式（停用 Infinite Scroll）
+   Step 6：搜尋（停用 Infinite Scroll）
 ========================================== */
 document.getElementById("searchBox").addEventListener("input", async (e) => {
+
     const q = e.target.value.trim().toLowerCase();
 
-    // 清空畫面
     itemList.innerHTML = "";
     loadMessage.style.display = "none";
 
-    // 沒輸入 → 回到 infinite scroll
+    // 若搜尋框清空 → 回到 Infinite Scroll
     if (!q) {
         offset = 0;
         allLoaded = false;
@@ -392,44 +401,42 @@ document.getElementById("searchBox").addEventListener("input", async (e) => {
         .or(`item_id.ilike.%${q}%,spec.ilike.%${q}%,material.ilike.%${q}%,position.ilike.%${q}%`)
         .limit(200);
 
-    if (error) return;
+    if (error) return console.error(error);
 
     if (!data || data.length === 0) {
         itemList.innerHTML =
-            "<div style='text-align:center;color:#aaa;padding:20px;'>查無資料</div>";
+            "<div style='color:#aaa;text-align:center;padding:20px;'>查無資料</div>";
         return;
     }
 
     renderBatch(data);
 });
 
-
 /* ==========================================
-   🔧 Step 7：狀態切換（顏色 → 過濾）
+   Step 7：構件狀態分類（未 / 預 / 進 / 用）
 ========================================== */
 document.querySelectorAll("input[name=filterStatus]").forEach(radio => {
     radio.addEventListener("change", async (e) => {
+
         currentFilter = e.target.value;
 
-        // reset infinite scroll
+        // Reset infinite scroll
         offset = 0;
         allLoaded = false;
         itemList.innerHTML = "";
         loadMessage.style.display = "none";
 
-        // 重新載入第一批
         await loadNextBatch();
     });
 });
 
-
 /* ==========================================
-   🔧 Step 8：排序切換
+   Step 8：排序模式（編號 / 位置 / 狀態）
 ========================================== */
 document.getElementById("sortSelect").addEventListener("change", async (e) => {
+
     currentSort = e.target.value;
 
-    // reset infinite scroll
     offset = 0;
     allLoaded = false;
     itemList.innerHTML = "";
@@ -438,11 +445,9 @@ document.getElementById("sortSelect").addEventListener("change", async (e) => {
     await loadNextBatch();
 });
 
-
 /* ==========================================
-   📤 Step 9：匯入 Excel / CSV
+   Step 9：匯入 Excel / CSV（Lazy XLSX）
 ========================================== */
-
 document.getElementById("importBtn").addEventListener("click", () => {
     document.getElementById("filePicker").click();
 });
@@ -462,32 +467,27 @@ document.getElementById("filePicker").addEventListener("change", async (e) => {
         if (ext === "csv") {
             json = csvToJSON(new TextDecoder("utf-8").decode(new Uint8Array(buffer)));
         } else {
-            // Lazy load XLSX
-            const wb = XLSX.read(buffer, { type: "array" });
+            const wb = XLSX.read(buffer, { type:"array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             json = XLSX.utils.sheet_to_json(ws);
         }
-    } catch (err) {
+    } catch(err) {
         console.error(err);
         alert("檔案解析失敗");
         return;
     }
 
-    if (!json.length) {
-        alert("檔案無資料");
-        return;
-    }
+    if (!json.length) return alert("檔案無資料");
 
     const required = [
-        "構件編號", "構件規格", "構件材質",
-        "構件重量", "構件位置", "構件數量"
+        "構件編號","構件規格","構件材質",
+        "構件重量","構件位置","構件數量"
     ];
 
     for (let r of required) {
         if (!json[0][r]) return alert("缺少欄位：" + r);
     }
 
-    /* 轉成資料庫格式 */
     const insertData = json.map(r => ({
         item_id: String(r["構件編號"]).trim(),
         spec: r["構件規格"] || "",
@@ -497,15 +497,12 @@ document.getElementById("filePicker").addEventListener("change", async (e) => {
         qty: Number(r["構件數量"]) || 1
     }));
 
-    /* 寫入 Supabase */
     const { error } = await db.from("components_library").upsert(insertData);
 
     if (error) {
-        console.error(error);
         alert("匯入失敗：" + error.message);
     } else {
         alert("匯入完成！");
-        // reset infinite scroll
         offset = 0;
         allLoaded = false;
         itemList.innerHTML = "";
@@ -513,30 +510,29 @@ document.getElementById("filePicker").addEventListener("change", async (e) => {
         await loadNextBatch();
     }
 
-    e.target.value = ""; // reset input
+    e.target.value = "";
 });
 
-
-/* CSV → JSON */
+/* ==========================================
+   CSV → JSON
+========================================== */
 function csvToJSON(csv) {
-    const lines = csv.split("\n").map(x => x.trim()).filter(x => x);
+    const lines = csv.split("\n").map(x=>x.trim()).filter(x=>x);
     const headers = lines[0].split(",");
     const result = [];
 
-    for (let i = 1; i < lines.length; i++) {
+    for (let i=1; i<lines.length; i++) {
         const row = lines[i].split(",");
         const obj = {};
-        headers.forEach((h, idx) => obj[h] = row[idx] || "");
+        headers.forEach((h, idx)=> obj[h] = row[idx] || "");
         result.push(obj);
     }
     return result;
 }
 
-
 /* ==========================================
-   ⬆️ 回到頂端按鈕
+   Step 10：回到頂端按鈕
 ========================================== */
-
 const backTopBtn = document.getElementById("backTopBtn");
 
 window.addEventListener("scroll", () => {
@@ -550,32 +546,28 @@ window.addEventListener("scroll", () => {
 });
 
 backTopBtn.addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top:0, behavior:"smooth" });
 });
 
-
 /* ==========================================
-   ⏳ Infinite Scroll（滑到底自動載入）
+   Step 11：Infinite Scroll（滑到底自動載入）
 ========================================== */
 window.addEventListener("scroll", async () => {
     if (allLoaded || loading) return;
 
-    const bottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+    const nearBottom =
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 180;
 
-    if (bottom) {
+    if (nearBottom) {
         await loadNextBatch();
     }
 });
 
-
 /* ==========================================
-   🚀 初始化
+   🚀 初始化（載 metadata → 第一批構件）
 ========================================== */
 (async () => {
     await loadMetaData();
-    await loadNextBatch();  // 載第一批
+    await loadNextBatch();
 })();
 </script>
-
-</body>
-</html>
