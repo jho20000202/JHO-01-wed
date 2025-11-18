@@ -1,231 +1,161 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <title>構件庫</title>
 <link rel="stylesheet" href="styles.css">
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
-<style>
-.status-dot { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:6px; }
-.dot-gray { background:#888; }
-.dot-yellow { background:#f1c40f; }
-.dot-orange { background:#e67e22; }
-.dot-green { background:#2ecc71; }
-
-.item-card {
-    background:#141821;
-    padding:14px;
-    border-radius:14px;
-    margin:10px 0;
-    border:1px solid #1f2735;
-}
-</style>
-
-</head>
-
-<body>
-
-<div class="top-bar">
-    <div class="top-bar-title">構件庫</div>
-    <a href="index.html" class="top-btn">返回主畫面</a>
-</div>
-
-<div class="screen-card">
-
-    <!-- 構件狀態 -->
-    <div class="section-title">構件狀態</div>
-
-    <div class="row" style="margin-bottom:12px;">
-        <label><input type="radio" name="status" value="全部" checked> 全部</label>
-        <label><span class="status-dot dot-gray"></span> 未進料</label>
-        <label><span class="status-dot dot-yellow"></span> 預定中</label>
-        <label><span class="status-dot dot-orange"></span> 已進料</label>
-        <label><span class="status-dot dot-green"></span> 已使用</label>
-    </div>
-
-    <!-- 搜尋 -->
-    <input id="searchInput" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
-
-    <!-- 匯入 EXCEL -->
-    <button class="primary-btn" onclick="document.getElementById('fileInput').click()">匯入 Excel / CSV</button>
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
-
-    <!-- 下載模板 -->
-    <button class="ghost-btn full" onclick="downloadCSVTemplate()">下載 CSV 模板</button>
-
-    <!-- 排序 -->
-    <label class="field-label">排序方式</label>
-    <select id="sortMethod" class="input-bar" onchange="renderList()">
-        <option value="item_id_asc">構件編號 ↑</option>
-        <option value="item_id_desc">構件編號 ↓</option>
-        <option value="qty_asc">數量 ↑</option>
-        <option value="qty_desc">數量 ↓</option>
-    </select>
-
-    <div id="listArea"></div>
-</div>
+<!-- XLSX 解析工具 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
-/* -------------------------------
-   Supabase 設定
---------------------------------- */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
-let components = [];
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* -------------------------------
-   檔案匯入
---------------------------------- */
-document.getElementById("fileInput").addEventListener("change", handleFile);
+let allComponents = [];
+let plannedMap = {};
+let usedMap = {};
 
-async function handleFile(evt){
-    const file = evt.target.files[0];
-    if(!file){ return; }
+window.onload = async () => {
+    await loadData();
+};
+async function loadData() {
+    const c = await sb.from("components_library").select("*");
+    const p = await sb.from("planned_items").select("item_id,status");
+    const u = await sb.from("today_records").select("item_id,status");
 
+    allComponents = c.data || [];
+
+    plannedMap = {};
+    (p.data || []).forEach(x => plannedMap[x.item_id] = x.status);
+
+    usedMap = {};
+    (u.data || []).forEach(x => usedMap[x.item_id] = true);
+
+    renderList();
+}
+
+function getStatusColor(item) {
+    const id = item.item_id;
+
+    if (!plannedMap[id] && !usedMap[id])
+        return "#7a7a7a";   // 未進料灰
+
+    if (plannedMap[id] === "planned")
+        return "#f1c40f";   // 預定中黃
+
+    if (plannedMap[id] === "received" && !usedMap[id])
+        return "#e67e22";   // 已進料橘
+
+    if (plannedMap[id] === "received" && usedMap[id])
+        return "#2ecc71";   // 已使用綠
+
+    return "#7a7a7a";
+}
+
+function renderList() {
+    const container = document.getElementById("list");
+    container.innerHTML = "";
+
+    allComponents.forEach(item => {
+        const color = getStatusColor(item);
+
+        const div = document.createElement("div");
+        div.className = "card";
+        div.style.borderLeft = `10px solid ${color}`;
+        div.style.marginBottom = "10px";
+
+        div.innerHTML = `
+            <div class="app-title">${item.item_id}</div>
+            <div class="muted-sm">規格：${item.spec || "-"}</div>
+            <div class="muted-sm">材質：${item.material || "-"}</div>
+            <div class="muted-sm">位置：${item.position || "-"}</div>
+            <div class="muted-sm">重量：${item.weight || "-"}</div>
+            <div class="muted-sm">數量：${item.qty || 1}</div>
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+function downloadCSVTemplate() {
+    const csv =
+`構件編號,構件規格,構件材質,構件重量,構件位置,構件數量
+UV0E3,PL25*500*650,SN490BM,89,32-33/F,1`;
+
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "構件清單模板.csv";
+    link.click();
+}
+
+async function uploadExcel() {
+    const input = document.getElementById("fileInput");
+    if (!input.files.length) return alert("請選擇 Excel 或 CSV 檔案");
+
+    const file = input.files[0];
     const reader = new FileReader();
 
     reader.onload = async (e) => {
-        let wb;
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
 
-        // Excel
-        if(file.name.endsWith(".xlsx") || file.name.endsWith(".xls")){
-            wb = XLSX.read(e.target.result, { type:"binary", cellDates:true });
-        } 
-        // CSV（以 UTF-8 讀取避免亂碼）
-        else if(file.name.endsWith(".csv")){
-            wb = XLSX.read(e.target.result, { type:"binary", codepage:65001 });
-        }
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const raw = XLSX.utils.sheet_to_json(ws, { defval:"" });
-
-        const rows = raw.map(r => ({
-            item_id: r["構件編號"] || "",
-            spec: r["構件規格"] || "",
-            material: r["構件材質"] || "",
+        const items = rows.map(r => ({
+            item_id: r["構件編號"],
+            spec: r["構件規格"],
+            material: r["構件材質"],
             weight: Number(r["構件重量"] || 0),
-            position: r["構件位置"] || "",
-            qty: Number(r["構件數量"] || 0)
+            position: r["構件位置"],
+            qty: Number(r["構件數量"] || 1)
         }));
 
-        // 欄位驗證
-        for(const x of rows){
-            if(!x.item_id){
-                alert("缺少必要欄位：構件編號\n請下載模板確認格式");
+        for (const it of items) {
+            if (!it.item_id) {
+                alert("缺少構件編號，請下載模板確認格式");
                 return;
             }
         }
 
-        // 寫入 Supabase
-        const { error } = await fetch(SUPABASE_URL + "/rest/v1/components_library", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_KEY,
-                "Authorization": "Bearer " + SUPABASE_KEY,
-                "Prefer": "resolution=merge-duplicates"
-            },
-            body: JSON.stringify(rows)
-        });
+        await sb.from("components_library").upsert(items);
 
-        if(error){
-            console.error(error);
-            alert("上傳失敗：" + error.message);
-        } else {
-            alert("匯入成功");
-            loadData();
-        }
+        alert("匯入成功！");
+        await loadData();
     };
 
-    reader.readAsBinaryString(file);
-}
-
-/* -------------------------------
-   載入資料
---------------------------------- */
-async function loadData(){
-    const { data, error } = await fetch(SUPABASE_URL + "/rest/v1/components_library?select=*", {
-        headers:{
-            "apikey": SUPABASE_KEY,
-            "Authorization":"Bearer " + SUPABASE_KEY
-        }
-    }).then(r => r.json().then(d => ({ data:d, error:null })).catch(() => ({ data:null, error:true })));
-
-    components = data || [];
-    renderList();
-}
-
-loadData();
-
-/* -------------------------------
-   狀態判斷（4 色分類）
---------------------------------- */
-function getStatusColor(item){
-    // 現階段：預設皆為「未進料」
-    return "dot-gray";
-}
-
-/* -------------------------------
-   列表渲染
---------------------------------- */
-function renderList(){
-    const area = document.getElementById("listArea");
-    area.innerHTML = "";
-
-    const txt = document.getElementById("searchInput").value.trim();
-
-    let list = components.filter(x => {
-        return (
-            x.item_id.includes(txt) ||
-            x.spec.includes(txt) ||
-            x.material.includes(txt) ||
-            x.position.includes(txt)
-        );
-    });
-
-    const sort = document.getElementById("sortMethod").value;
-
-    if(sort === "item_id_asc") list.sort((a,b)=>a.item_id.localeCompare(b.item_id));
-    if(sort === "item_id_desc") list.sort((a,b)=>b.item_id.localeCompare(a.item_id));
-    if(sort === "qty_asc") list.sort((a,b)=>a.qty - b.qty);
-    if(sort === "qty_desc") list.sort((a,b)=>b.qty - a.qty);
-
-    list.forEach(item => {
-        const dot = getStatusColor(item);
-
-        area.innerHTML += `
-            <div class="item-card">
-                <div><span class="status-dot ${dot}"></span><b>${item.item_id}</b></div>
-                <div class="muted-sm">${item.spec}</div>
-                <div class="muted-sm">材質：${item.material}　重量：${item.weight}</div>
-                <div class="muted-sm">位置：${item.position}　數量：${item.qty}</div>
-            </div>
-        `;
-    });
-}
-
-/* -------------------------------
-   CSV 模板下載（UTF-8）
---------------------------------- */
-function downloadCSVTemplate(){
-    const rows = [
-        ["構件編號","構件規格","構件材質","構件重量","構件位置","構件數量"],
-        ["UV0E3","PL25*500*650","SN490BM","89","32-33/F","1"]
-    ];
-
-    let csv = rows.map(r => r.join(",")).join("\n");
-
-    const blob = new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "構件庫模板.csv";
-    a.click();
+    reader.readAsArrayBuffer(file);
 }
 </script>
+
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="top-bar-title">構件庫</div>
+    <button class="top-btn" onclick="location.href='index.html'">返回主畫面</button>
+</div>
+
+<div class="screen-card">
+    <div class="section-title">上傳 Excel / CSV</div>
+
+    <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="input-bar">
+    <button class="primary-btn" onclick="uploadExcel()">匯入 Excel / CSV</button>
+
+    <button class="ghost-btn full" onclick="downloadCSVTemplate()">下載 CSV 模板</button>
+</div>
+
+<div class="screen-card">
+    <div class="section-title">構件清單</div>
+    <div id="list"></div>
+</div>
+
+<!-- Supabase client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 </body>
 </html>
