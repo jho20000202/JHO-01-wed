@@ -2,23 +2,51 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>鋼構進出料記錄系統</title>
-    <link rel="stylesheet" href="styles.css?v=V6.1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>鋼構管理系統（首頁）</title>
+
+    <link rel="stylesheet" href="./styles.css" />
   </head>
+
   <body>
-    <div id="app"></div>
-    <!-- 純 Web 版不依賴 GIS/原生 OAuth；如需 Drive，後續可改為後端 API -->
-    <script>
-      window.addEventListener('error', function(e){
-        var app=document.getElementById('app');
-        if(!app) return;
-        app.innerHTML = '<div class="section"><div class="card"><div class="app-title">載入失敗</div><div class="muted">發生非預期錯誤，請點按下方重新載入。</div><div style="margin-top:8px"><button class="btn" onclick="location.reload()">重新整理</button></div></div></div>';
-        try{ console.error('Runtime error', e.error || e.message || e); }catch{}
-      });
-    </script>
-    <script src="back.js?v=V6.1"></script>
-    <script type="module" src="app.js?v=V6.1"></script>
-    <pre id="debugArea" style="background:#111;color:#0f0;padding:10px;white-space:pre-wrap;font-size:12px;border:1px solid #333;"></pre>
+    <div class="topbar">
+      <div style="font-size:20px;font-weight:600;">鋼構管理系統</div>
+    </div>
+
+    <div class="section">
+      <div class="grid two">
+        <div class="card clickable" onclick="location.href='library.html'">
+          <div class="card-title">構件資料庫</div>
+          <div class="muted-sm">新增、編輯、管理構件</div>
+        </div>
+
+        <div class="card clickable" onclick="location.href='manage.html'">
+          <div class="card-title">手動異動</div>
+          <div class="muted-sm">進料、使用紀錄</div>
+        </div>
+
+        <div class="card clickable" onclick="location.href='planned.html'">
+          <div class="card-title">預計進料</div>
+          <div class="muted-sm">排程、日期、預定數量</div>
+        </div>
+
+        <div class="card clickable" onclick="location.href='confirm.html'">
+          <div class="card-title">進料確認</div>
+          <div class="muted-sm">今日進料狀態</div>
+        </div>
+
+        <div class="card clickable" onclick="location.href='progress.html'">
+          <div class="card-title">進度總覽</div>
+          <div class="muted-sm">進料 / 使用百分比</div>
+        </div>
+
+        <div class="card clickable" onclick="location.href='report.html'">
+          <div class="card-title">報表匯出</div>
+          <div class="muted-sm">Excel / CSV</div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./back.js"></script>
   </body>
 </html>
