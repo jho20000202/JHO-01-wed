@@ -1,200 +1,74 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>構件庫</title>
-    <link rel="stylesheet" href="styles.css">
-
-    <style>
-        body { padding: 20px; }
-
-        /* 標題列 */
-        .header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .header-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #fff;
-        }
-        .back-btn {
-            padding: 10px 20px;
-            background: #2f3340;
-            color: #fff;
-            border-radius: 12px;
-            cursor: pointer;
-        }
-
-        /* 狀態分類 */
-        .status-filter {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            background: #1e1f25;
-            padding: 12px;
-            border-radius: 14px;
-            margin-bottom: 18px;
-        }
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: #2a2b31;
-            padding: 6px 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            color: #ddd;
-            cursor: pointer;
-        }
-        .status-pill.active {
-            background: #3c3e45;
-            font-weight: bold;
-        }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot-gray { background: #888; }
-        .dot-blue { background: #4aa3ff; }
-        .dot-orange { background: #ff9f3f; }
-        .dot-green { background: #52d96b; }
-
-        /* 搜尋框 */
-        .search-box {
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            border: none;
-            background: #2a2b31;
-            color: #fff;
-            margin-bottom: 18px;
-        }
-
-        /* 按鈕 */
-        .btn-block {
-            width: 100%;
-            padding: 14px;
-            background: #2f3340;
-            color: #fff;
-            border-radius: 14px;
-            margin-bottom: 12px;
-            text-align: center;
-            cursor: pointer;
-        }
-
-        /* 排序下拉 */
-        select.sort-select {
-            width: 100%;
-            padding: 14px;
-            border-radius: 14px;
-            background: #2a2b31;
-            color: #fff;
-            border: none;
-            margin-bottom: 18px;
-        }
-
-        /* 提示文字 */
-        .hint {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 20px;
-        }
-
-        /* 構件卡片 */
-        .item-card {
-            background: #2a2b31;
-            padding: 14px;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            color: #fff;
-        }
-        .item-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #4aa3ff;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
 
-    <!-- 標頭 -->
-    <div class="header-row">
-        <div class="header-title">構件庫</div>
-        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
+<!-- 頂部大卡片 -->
+<div class="top-bar">
+    <div class="top-bar-title">構件庫</div>
+    <div class="top-bar-actions">
+        <button class="top-btn" onclick="location.href='index.html'">返回主畫面</button>
     </div>
+</div>
+
+<!-- 主卡片 -->
+<div class="screen-card">
 
     <!-- 狀態分類 -->
-    <div class="status-filter">
-        <div class="status-pill" data-status="not_received">
-            <span class="dot dot-gray"></span> 未進料
+    <div class="section-title">構件狀態</div>
+
+    <div class="grid" style="margin-bottom:16px;">
+        <div class="row">
+            <span style="width:14px;height:14px;background:#6b7280;border-radius:50%;"></span>
+            <span>未進料</span>
         </div>
-        <div class="status-pill" data-status="planned">
-            <span class="dot dot-blue"></span> 預定中
+
+        <div class="row">
+            <span style="width:14px;height:14px;background:#eab308;border-radius:50%;"></span>
+            <span>預定中</span>
         </div>
-        <div class="status-pill" data-status="received">
-            <span class="dot dot-orange"></span> 已進料
+
+        <div class="row">
+            <span style="width:14px;height:14px;background:#f97316;border-radius:50%;"></span>
+            <span>已進料</span>
         </div>
-        <div class="status-pill" data-status="used">
-            <span class="dot dot-green"></span> 已使用
+
+        <div class="row">
+            <span style="width:14px;height:14px;background:#27ae60;border-radius:50%;"></span>
+            <span>已使用</span>
         </div>
     </div>
 
-    <!-- 搜尋框 -->
-    <input class="search-box" id="searchInput"
-        placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
+    <!-- 搜尋 -->
+    <label class="field-label">搜尋構件</label>
+    <input class="input-bar" id="searchInput" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
 
-    <!-- 匯入/匯出 -->
-    <div class="btn-block" onclick="importLibrary()">匯入 Excel / CSV</div>
-    <div class="btn-block" onclick="downloadTemplate()">下載 CSV 模板</div>
+    <!-- 按鈕列 -->
+    <div class="row-btns full">
+        <button class="primary-btn" onclick="uploadCsv()">匯入 Excel / CSV</button>
+        <button class="ghost-btn" onclick="downloadTemplate()">下載 CSV 模板</button>
+    </div>
 
     <!-- 排序 -->
-    <select class="sort-select" id="sortSelect">
-        <option value="nameAsc">排序：構件名稱 ↑</option>
-        <option value="nameDesc">排序：構件名稱 ↓</option>
-        <option value="status">排序：構件狀態</option>
-        <option value="qty">排序：構件數量</option>
-        <option value="planned_date">排序：預計日期</option>
-        <option value="used_date">排序：使用日期</option>
+    <label class="field-label">排序方式</label>
+    <select class="input-bar" id="sortSelect">
+        <option value="name-asc">構件名稱 ↑</option>
+        <option value="name-desc">構件名稱 ↓</option>
+        <option value="position">位置</option>
+        <option value="status">狀態</option>
     </select>
 
-    <!-- 提示 -->
-    <div class="hint">
-        • 構件庫匯入格式為 6 欄。  
-        • 建議先下載模板再進行編輯。
-    </div>
+</div>
 
-    <!-- 構件列表 -->
-    <div id="itemList">
-        <!-- JS 會動態生成構件卡片 -->
-    </div>
+<!-- 構件列表 -->
+<div class="section" id="listContainer">
+    <!-- JS 會動態填入 -->
+</div>
 
-    <script src="back.js"></script>
-
-    <script>
-        /* 狀態分類切換 */
-        const pills = document.querySelectorAll(".status-pill");
-        pills.forEach(p => {
-            p.addEventListener("click", () => {
-                pills.forEach(x => x.classList.remove("active"));
-                p.classList.add("active");
-                filterByStatus(p.dataset.status);
-            });
-        });
-
-        function filterByStatus(s) {
-            console.log("狀態切換：", s);
-            // TODO：你後續資料庫完成後再填寫
-        }
-
-        function importLibrary() {
-            alert("匯入功能尚未連接（等待 Supabase）。");
-        }
-
-        function downloadTemplate() {
-            location.href = "library_template.csv";
-        }
-    </script>
 </body>
 </html>
