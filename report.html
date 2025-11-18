@@ -1,168 +1,213 @@
-<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>報表匯出</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  </head>
-  <body>
-    <div class="section">
-      <div class="card">
-        <div class="row" style="flex-wrap:wrap;">
-          <div class="app-title">報表匯出</div>
-          <a class="btn" href="index.html">返回主畫面</a>
-        </div>
-        <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap;">
-          <button class="btn primary" id="excel">匯出 Excel</button>
-          <button class="btn" id="exportDevice">匯出到手機</button>
-          <button class="btn" id="previewXLSX">預覽 Excel</button>
-          <button class="btn" id="csv">匯出 CSV</button>
-          <button class="btn" id="exportGoogle">匯出到 Google</button>
-          <button class="btn" id="downloads">最近匯出</button>
-        </div>
-        <div class="muted" style="margin-top:8px;">匯出資料範圍：構件庫＋登記資料（含進/使用/進度）</div>
-      </div>
-    </div>
-    <script src="back.js"></script>
-    <script src="vendor/xlsx.full.min.js"></script>
-    <script>
-      document.getElementById('excel').addEventListener('click', ()=>{
-        if (window.__exportExcel) window.__exportExcel();
-        else fallback('excel');
-      });
-      document.getElementById('csv').addEventListener('click', ()=>{
-        if (window.__exportCSV) window.__exportCSV();
-        else fallback('csv');
-      });
-      document.getElementById('downloads').addEventListener('click', ()=>{ if(window.showDownloads) window.showDownloads(); });
-      document.getElementById('previewXLSX').addEventListener('click', async ()=>{
-        try {
-          const get=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
-          const libs = get('componentsLibrary', []);
-          const today = get('todayRecords', []);
-          const planned = get('plannedItems', []);
-          const used = get('usedRecords', []);
-          const key = (x)=> `${String(x.id)}|${String(x.position||'')}`;
-          const stat = new Map(); planned.forEach(r=>{ stat.set(key(r), { status:r.status||'scheduled', plannedAt:r.plannedAt||'', actualAt:'' }); }); today.forEach(r=>{ stat.set(key(r), { status:r.status||'', plannedAt:r.plannedAt||'', actualAt:r.actualAt||'' }); });
-          const latestUsed = new Map(); used.forEach(u=>{ const k=`${String(u.id)}|${String(u.position||'')}`; const t=String(u.usedAt||''); const prev=latestUsed.get(k)||''; const pd=(used||[]).find(x=>`${String(x.id)}|${String(x.position||'')}`===k && String(x.usedAt)===prev)?.usedAtDate || ''; const nd = u.usedAtDate || ''; if(!prev || (nd && pd && nd>pd)) latestUsed.set(k, t); else latestUsed.set(k, t); });
-          const num = (v)=>{ const n=Number(String(v??'').replace(/,/g,'')); return Number.isFinite(n)?n:0; };
-          const recKeys = new Set(today.filter(r=>r.status==='received').map(r=> `${String(r.id)}|${String(r.position||'')}`));
-          const usedSumByKey = (()=>{ const m=new Map(); (used||[]).forEach(u=>{ const k=`${String(u.id)}|${String(u.position||'')}`; m.set(k,(m.get(k)||0)+num(u.qty ?? u.quantity ?? u.usedQty)); }); return m; })();
-          const rows = libs.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(item=>{ const k = key(item); const s = stat.get(k) || {}; const isDate = /\d{4}-\d{2}-\d{2}/.test(String(s.plannedAt||'')); const recTime = (isDate? String(s.plannedAt) : '') + (s.actualAt? (isDate? ` ${s.actualAt}` : String(s.actualAt)) : ''); const useTime = latestUsed.get(`${String(item.id)}|${String(item.position||'')}`) || ''; const statusLabel = (useTime && String(useTime).trim()!=='') ? '已使用' : (s.status==='received' ? '已進料' : ''); const qty = num(item.quantity); const usedQty = Math.min(usedSumByKey.get(k)||0, qty); const recvPct = qty ? (recKeys.has(k) ? 100 : 0) : 0; const usedPct = qty ? Math.round(usedQty*100/qty) : 0; return ['構件編號', item.id || '', '規格', item.spec || '', '位置', item.position || '', '重量', (item.weight!==undefined? item.weight : ''), '數量', (item.quantity!==undefined? item.quantity : ''), '狀態', statusLabel, '進料時間', recTime, '使用時間', useTime, '進料進度', `${recvPct}%`, '使用進度', `${usedPct}%`]; });
-          const ws = XLSX.utils.aoa_to_sheet([['報表'], ...rows]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '報表'); const data = XLSX.write(wb, { bookType:'xlsx', type:'array' }); const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          if (window.showExcelPreview) window.showExcelPreview(blob, 'report.xlsx');
-        } catch (e) { alert('預覽失敗：'+(e?.message||e)); }
-      });
+    <link rel="stylesheet" href="styles.css">
 
-      document.getElementById('exportGoogle').addEventListener('click', async ()=>{
-        try {
-          const get=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
-          const libs = get('componentsLibrary', []);
-          const today = get('todayRecords', []);
-          const planned = get('plannedItems', []);
-          const used = get('usedRecords', []);
-          const key = (x)=> `${String(x.id)}|${String(x.position||'')}`;
-          const stat = new Map(); planned.forEach(r=>{ stat.set(key(r), { status:r.status||'scheduled', plannedAt:r.plannedAt||'', actualAt:'' }); }); today.forEach(r=>{ stat.set(key(r), { status:r.status||'', plannedAt:r.plannedAt||'', actualAt:r.actualAt||'' }); });
-          const latestUsed = new Map(); used.forEach(u=>{ const k=`${String(u.id)}|${String(u.position||'')}`; const t=String(u.usedAt||''); const prev=latestUsed.get(k)||''; const pd=(used||[]).find(x=>`${String(x.id)}|${String(x.position||'')}`===k && String(x.usedAt)===prev)?.usedAtDate || ''; const nd = u.usedAtDate || ''; if(!prev || (nd && pd && nd>pd)) latestUsed.set(k, t); else latestUsed.set(k, t); });
-          const num = (v)=>{ const n=Number(String(v??'').replace(/,/g,'')); return Number.isFinite(n)?n:0; };
-          const recKeys = new Set(today.filter(r=>r.status==='received').map(r=> `${String(r.id)}|${String(r.position||'')}`));
-          const usedSumByKey = (()=>{ const m=new Map(); (used||[]).forEach(u=>{ const k=`${String(u.id)}|${String(u.position||'')}`; m.set(k,(m.get(k)||0)+num(u.qty ?? u.quantity ?? u.usedQty)); }); return m; })();
-          const rows = libs.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(item=>{ const k = key(item); const s = stat.get(k) || {}; const isDate = /\d{4}-\d{2}-\d{2}/.test(String(s.plannedAt||'')); const recTime = (isDate? String(s.plannedAt) : '') + (s.actualAt? (isDate? ` ${s.actualAt}` : String(s.actualAt)) : ''); const useTime = latestUsed.get(`${String(item.id)}|${String(item.position||'')}`) || ''; const statusLabel = (useTime && String(useTime).trim()!=='') ? '已使用' : (s.status==='received' ? '已進料' : ''); const qty = num(item.quantity); const usedQty = Math.min(usedSumByKey.get(k)||0, qty); const recvPct = qty ? (recKeys.has(k) ? 100 : 0) : 0; const usedPct = qty ? Math.round(usedQty*100/qty) : 0; return ['構件編號', item.id || '', '規格', item.spec || '', '位置', item.position || '', '重量', (item.weight!==undefined? item.weight : ''), '數量', (item.quantity!==undefined? item.quantity : ''), '狀態', statusLabel, '進料時間', recTime, '使用時間', useTime, '進料進度', `${recvPct}%`, '使用進度', `${usedPct}%`]; });
-          const ws = XLSX.utils.aoa_to_sheet([['報表'], ...rows]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '報表'); const data = XLSX.write(wb, { bookType:'xlsx', type:'array' }); const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          // 先嘗試 Google 直傳
-          if (window.GoogleAuth) {
-            try {
-              if (!GoogleAuth.isLogged()) { await GoogleAuth.login(); }
-              const folderId = (localStorage.getItem('google:folderId')? JSON.parse(localStorage.getItem('google:folderId')):'');
-              const meta = await GoogleAuth.uploadFile('report.xlsx', blob, blob.type, folderId);
-              const link = meta?.webViewLink || '';
-              if (window.showExportToast) window.showExportToast('report.xlsx', link);
-              try { if (link) window.open(link, '_blank'); } catch {}
-              return;
-            } catch {}
-          }
-          const ok = await (window.saveBlobWithPicker ? window.saveBlobWithPicker(blob, 'report.xlsx') : false);
-          if (!ok) alert('裝置不支援原生儲存');
-        } catch (e) { alert('匯出至 Google 失敗：'+(e?.message||e)); }
-      });
-      async function fallback(type){
-        const get=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
-        const libs = get('componentsLibrary', []);
-        const today = get('todayRecords', []);
-        const planned = get('plannedItems', []);
-        const used = get('usedRecords', []);
-        const key = (x)=> `${String(x.id)}|${String(x.position||'')}`;
-        const stat = new Map();
-        planned.forEach(r=>{ stat.set(key(r), { status:r.status||'scheduled', plannedAt:r.plannedAt||'', actualAt:'' }); });
-        today.forEach(r=>{ stat.set(key(r), { status:r.status||'', plannedAt:r.plannedAt||'', actualAt:r.actualAt||'' }); });
-        const latestUsed = new Map();
-        used.forEach(u=>{
-          const k=`${String(u.id)}|${String(u.position||'')}`;
-          const t=String(u.usedAt||'');
-          const prev=latestUsed.get(k)||'';
-          const pd = (used||[]).find(x=>`${String(x.id)}|${String(x.position||'')}`===k && String(x.usedAt)===prev)?.usedAtDate || '';
-          const nd = u.usedAtDate || '';
-          if(!prev || (nd && pd && nd>pd)) latestUsed.set(k, t); else latestUsed.set(k, t);
-        });
-        // 工具
-        const num = (v)=>{ const n=Number(String(v??'').replace(/,/g,'')); return Number.isFinite(n)?n:0; };
-        const recKeys = new Set(today.filter(r=>r.status==='received').map(r=> `${String(r.id)}|${String(r.position||'')}`));
-        const usedSumByKey = (()=>{
-          const m=new Map();
-          (used||[]).forEach(u=>{
-            const k=`${String(u.id)}|${String(u.position||'')}`;
-            m.set(k,(m.get(k)||0)+num(u.qty ?? u.quantity ?? u.usedQty));
-          });
-          return m;
-        })();
-        const rows = libs.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(item=>{
-          const k = key(item);
-          const s = stat.get(k) || {};
-          // 進料時間：以 plannedAt(日期)+actualAt(時間) 組合；若無日期則僅時間
-          const isDate = /\d{4}-\d{2}-\d{2}/.test(String(s.plannedAt||''));
-          const recTime = (isDate? String(s.plannedAt) : '') + (s.actualAt? (isDate? ` ${s.actualAt}` : String(s.actualAt)) : '');
-          // 使用時間：採用最新的 usedAt（已為日期+時間）
-          const useTime = latestUsed.get(`${String(item.id)}|${String(item.position||'')}`) || '';
-          const statusLabel = (useTime && String(useTime).trim()!=='')
-            ? '已使用'
-            : (s.status==='received' ? '已進料' : '');
-          // 進度（依該構件數量）
-          const qty = num(item.quantity);
-          const usedQty = Math.min(usedSumByKey.get(k)||0, qty);
-          const recvPct = qty ? (recKeys.has(k) ? 100 : 0) : 0;
-          const usedPct = qty ? Math.round(usedQty*100/qty) : 0;
-          return {
-            '構件編號': item.id || '',
-            '構件規格': item.spec || '',
-            '構件重量': (item.weight!==undefined? item.weight : ''),
-            '構件位置': item.position || '',
-            '構件數量': (item.quantity!==undefined? item.quantity : ''),
-            '構件目前狀態': statusLabel,
-            '構件進料時間': recTime,
-            '構件使用時間': useTime,
-            '構件進料進度': `${recvPct}%`,
-            '構件使用進度': `${usedPct}%`
-          };
-        });
-        if(type==='excel'){
-          const ws=XLSX.utils.json_to_sheet(rows);
-          const wb=XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, '報表');
-          const data = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-          const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const saved = await (window.saveBlobWithPicker ? window.saveBlobWithPicker(blob, 'report.xlsx') : false);
-          if (!saved) alert('裝置不支援原生儲存');
-        } else {
-          const header=['構件編號','構件規格','構件重量','構件位置','構件數量','構件目前狀態','構件進料時間','構件使用時間','構件進料進度','構件使用進度'];
-          const csvRows = rows.map(r=> header.map(h=> r[h]??'' ));
-          const csv=[header,...csvRows].map(row=>row.map(cell=>`"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
-          const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-          const saved = await (window.saveBlobWithPicker ? window.saveBlobWithPicker(blob, 'report.csv') : false);
-          if (!saved) alert('裝置不支援原生儲存');
-      }
-      }
+    <style>
+        body { padding: 20px; }
+
+        /* Header */
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .back-btn {
+            padding: 10px 20px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        /* Select box */
+        .select-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            background: #33343a;
+            color: #fff;
+            border: none;
+            margin-bottom: 20px;
+        }
+
+        /* Search */
+        .search-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            background: #2f3340;
+            border: none;
+            margin-bottom: 25px;
+            color: #fff;
+        }
+
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+        }
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 14px;
+            margin-right: 10px;
+            text-align: center;
+            cursor: pointer;
+            color: #fff;
+        }
+        .btn:last-child { margin-right: 0; }
+
+        .btn-blue { background: #1e80ff; }
+        .btn-gray { background: #3a3d47; }
+        .btn-red { background: #d9534f; }
+
+        /* List items */
+        .item-card {
+            background: #2a2b31;
+            padding: 16px;
+            border-radius: 16px;
+            margin-bottom: 18px;
+            color: #fff;
+        }
+        .item-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .item-sub {
+            margin-top: 6px;
+            color: #bbb;
+            font-size: 14px;
+            line-height: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <div class="header-row">
+        <div class="header-title">進料確認</div>
+        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
+    </div>
+
+    <!-- Sort -->
+    <select id="sortMode" class="select-box" onchange="renderList()">
+        <option value="latestUse">排序：已使用最後</option>
+        <option value="latestIn">排序：已進料最後</option>
+        <option value="nameAsc">排序：構件名稱 ↑</option>
+        <option value="nameDesc">排序：構件名稱 ↓</option>
+    </select>
+
+    <!-- Search -->
+    <input id="search" class="search-box" placeholder="搜尋：編號 / 位置 / 規格 / 材質 / 重量 / 數量" oninput="renderList()">
+
+    <div style="color:#bbb; margin-bottom:15px;">今日無進料紀錄</div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+        <div class="btn btn-gray" onclick="previewExcel()">預覽 Excel</div>
+        <div class="btn btn-blue" onclick="exportExcel()">輸出今日進料 Excel</div>
+    </div>
+
+    <div class="btn btn-red" onclick="confirmClear()">清除今日進料</div>
+
+    <!-- List -->
+    <div id="itemList" style="margin-top:30px;"></div>
+
+    <script>
+        // ---------------------------
+        //  示範資料（之後換成 Supabase）
+        // ---------------------------
+        let items = [
+            { id: "UV0E3", pos: "32-33/F", spec: "PL25×500×650", weight: 89, qty: 1, in: "2025-01-03", use: "" },
+            { id: "UV0E3", pos: "32-33/G", spec: "PL25×500×650", weight: 89, qty: 1, in: "2025-01-03", use: "2025-01-04" },
+            { id: "UV0V1", pos: "32-33/F", spec: "RH300×300×10×15×5836.8", weight: 310, qty: 1, in: "", use: "" }
+        ];
+
+        function renderList() {
+            const list = document.getElementById("itemList");
+            const search = document.getElementById("search").value.toLowerCase();
+            const sortMode = document.getElementById("sortMode").value;
+
+            // 搜尋
+            let filtered = items.filter(a =>
+                (a.id + a.pos + a.spec + a.weight + a.qty)
+                    .toLowerCase()
+                    .includes(search)
+            );
+
+            // 排序
+            if (sortMode === "latestUse") {
+                filtered.sort((a, b) => (b.use || "") > (a.use || "") ? 1 : -1);
+            }
+            else if (sortMode === "latestIn") {
+                filtered.sort((a, b) => (b.in || "") > (a.in || "") ? 1 : -1);
+            }
+            else if (sortMode === "nameAsc") {
+                filtered.sort((a, b) => a.id.localeCompare(b.id));
+            }
+            else if (sortMode === "nameDesc") {
+                filtered.sort((a, b) => b.id.localeCompare(a.id));
+            }
+
+            // 渲染
+            list.innerHTML = "";
+            filtered.forEach(item => {
+                const card = document.createElement("div");
+                card.className = "item-card";
+
+                card.innerHTML = `
+                    <div class="item-title">${item.id}</div>
+                    <div class="item-sub">
+                        位置：${item.pos}<br>
+                        規格：${item.spec}<br>
+                        重量：${item.weight}　數量：${item.qty}<br>
+                        已進料：${item.in || "-"}<br>
+                        已使用：${item.use || "-"}
+                    </div>
+                `;
+
+                list.appendChild(card);
+            });
+        }
+
+        renderList();
+
+        // ---------------------------
+        //  Button Actions
+        // ---------------------------
+        function previewExcel() {
+            alert("（示範）即將預覽 Excel\n\n之後會串本地產生的 Excel Blob");
+        }
+
+        function exportExcel() {
+            alert("（示範）已匯出 Excel\n\n後續接你 back.js 的 Excel 生成");
+        }
+
+        // 兩次確認
+        let clearStep = 0;
+
+        function confirmClear() {
+            if (clearStep === 0) {
+                alert("再次點擊即可清除今日進料！");
+                clearStep = 1;
+                return;
+            }
+            clearStep = 0;
+            alert("今日進料已清除！");
+        }
     </script>
-  </body>
+
+</body>
 </html>
