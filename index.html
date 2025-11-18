@@ -1,52 +1,95 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>鋼構管理系統（首頁）</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鋼構進出料記錄系統</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
 
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
+<body>
 
-  <body>
-    <div class="topbar">
-      <div style="font-size:20px;font-weight:600;">鋼構管理系統</div>
+<!-- 頂部大橫條 -->
+<header class="top-bar">
+    <div class="top-bar-title">鋼構進出料記錄系統</div>
+    <div class="top-bar-actions">
+        <button class="top-btn" onclick="googleLogin()">Google 登入</button>
+        <button class="top-btn" onclick="openDiag()">診斷</button>
+    </div>
+</header>
+
+<main>
+
+<!-- 主功能按鈕區（六宮格） -->
+<section class="screen-card grid-2">
+    <button class="menu-btn" onclick="goProgress()">進度表</button>
+    <button class="menu-btn" onclick="goReport()">報表匯出</button>
+
+    <button class="menu-btn" onclick="goPlanned()">預計進料登記</button>
+    <button class="menu-btn" onclick="goConfirm()">構件使用確認</button>
+
+    <button class="menu-btn" onclick="goManage()">構件管理</button>
+    <button class="menu-btn" onclick="goLibrary()">構件庫</button>
+</section>
+
+
+<!-- 雲端設定（Google Drive） -->
+<section class="screen-card">
+    <div class="section-title">雲端設定（Google Drive）</div>
+
+    <label class="field-label">Google Client ID</label>
+    <input id="googleClient" class="input-bar" placeholder="Google Client ID">
+
+    <label class="field-label">Drive 資料夾 ID（選填）</label>
+    <input id="driveFolder" class="input-bar" placeholder="資料夾 ID">
+
+    <button class="primary-btn" onclick="saveCloudSettings()">儲存</button>
+</section>
+
+
+<!-- 兩個圓環進度 -->
+<section class="screen-card progress-card">
+    <div class="progress-wrapper">
+        <div class="circle-progress">
+            <div class="circle-text">
+                <div id="progressInPct">0%</div>
+                <small>已進料</small>
+            </div>
+        </div>
+        <div class="progress-bottom" id="progressInTxt">0 / 0</div>
     </div>
 
-    <div class="section">
-      <div class="grid two">
-        <div class="card clickable" onclick="location.href='library.html'">
-          <div class="card-title">構件資料庫</div>
-          <div class="muted-sm">新增、編輯、管理構件</div>
+    <div class="progress-wrapper">
+        <div class="circle-progress">
+            <div class="circle-text">
+                <div id="progressUsedPct">0%</</div>
+                <small>已使用</small>
+            </div>
         </div>
+        <div class="progress-bottom" id="progressUsedTxt">0 / 0</div>
+    </div>
+</section>
 
-        <div class="card clickable" onclick="location.href='manage.html'">
-          <div class="card-title">手動異動</div>
-          <div class="muted-sm">進料、使用紀錄</div>
-        </div>
 
-        <div class="card clickable" onclick="location.href='planned.html'">
-          <div class="card-title">預計進料</div>
-          <div class="muted-sm">排程、日期、預定數量</div>
-        </div>
+<!-- 資料備份與還原 -->
+<section class="screen-card">
+    <div class="section-title">資料備份與還原</div>
 
-        <div class="card clickable" onclick="location.href='confirm.html'">
-          <div class="card-title">進料確認</div>
-          <div class="muted-sm">今日進料狀態</div>
-        </div>
-
-        <div class="card clickable" onclick="location.href='progress.html'">
-          <div class="card-title">進度總覽</div>
-          <div class="muted-sm">進料 / 使用百分比</div>
-        </div>
-
-        <div class="card clickable" onclick="location.href='report.html'">
-          <div class="card-title">報表匯出</div>
-          <div class="muted-sm">Excel / CSV</div>
-        </div>
-      </div>
+    <div class="row-btns">
+        <button class="ghost-btn" onclick="exportBackup()">備份匯出</button>
+        <button class="ghost-btn" onclick="importBackup()">備份匯入</button>
+        <button class="ghost-btn" onclick="showLastExport()">最近匯出</button>
     </div>
 
-    <script src="./back.js"></script>
-  </body>
+    <button class="danger-btn full" onclick="clearAll()">清除所有資料</button>
+</section>
+
+</main>
+
+<script src="back.js"></script>
+<script>
+    // 首頁啟動時更新圓環
+    loadDashboard();
+</script>
+</body>
 </html>
