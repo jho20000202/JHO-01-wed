@@ -1,157 +1,175 @@
-<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>進度表</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    
-  </head>
-  <body>
-    <div class="section">
-      <div class="card">
-        <div class="row" style="flex-wrap:wrap;">
-          <div class="app-title">進度表</div>
-          <a class="btn" href="index.html">返回主畫面</a>
-        </div>
-        <div class="row" style="gap:8px; flex-wrap:nowrap; overflow-x:auto; margin-top:8px;">
-          <select id="dateSel" class="btn" style="min-width:160px; flex:0 0 auto"></select>
-          <button id="applyDate" class="btn" style="flex:0 0 auto">套用</button>
-        </div>
+    <link rel="stylesheet" href="styles.css">
 
+    <style>
+        body { padding: 20px; }
 
-        <div class="row" style="margin-top:12px; gap:12px; flex-wrap:wrap; justify-content:center;">
-          <div style="display:flex; flex-direction:column; align-items:center;">
-            <canvas id="chartReceived" width="112" height="112"></canvas>
-            <div class="muted" id="labelReceived" style="margin-top:6px;">已進料 0/0 (0%)</div>
-          </div>
-          <div style="display:flex; flex-direction:column; align-items:center;">
-            <canvas id="chartUsed" width="112" height="112"></canvas>
-            <div class="muted" id="labelUsed" style="margin-top:6px;">已使用 0/0 (0%)</div>
-          </div>
-        </div>
-
-        <div id="progressBars" class="prog" style="margin-top:8px;"></div>
-
-        
-
-        <div id="progressList" class="list" style="margin-top:8px;"></div>
-      </div>
-    </div>
-    
-
-    <script src="back.js"></script>
-    <script src="vendor/xlsx.full.min.js"></script>
-    <script>
-      function get(k,f){ try { return JSON.parse(localStorage.getItem(k)) ?? f } catch { return f } }
-      function set(k,v){ localStorage.setItem(k, JSON.stringify(v)) }
-      const today=()=>{ const arr=get('todayRecords', []); const d=window.__selectedDate||''; return d? arr.filter(r=>String(r.plannedAt||'')===d) : arr; };
-      const libs=()=>get('componentsLibrary', []);
-      const planned=()=>get('plannedItems', []);
-      const used=()=>{ const arr=get('usedRecords', []); const d=window.__selectedDate||''; return d? arr.filter(u=>String(u.usedAtDate||'')===d) : arr; };
-      const isDate=(s)=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
-
-      function render(){
-        const list=document.getElementById('progressList'); list.innerHTML='';
-        const t=today();
-        const stat=new Map(t.map(r=>[String(r.id), r]));
-        const all=libs().slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-        if(all.length===0){ list.innerHTML='<div class="muted">構件庫為空</div>'; renderCharts(); renderBars(); return; }
-        all.forEach(item=>{
-          const s=stat.get(String(item.id));
-          const row=document.createElement('div'); row.className='list-item';
-          const zhStatus = s?.status==='received' ? '已進料' : (s?.status==='scheduled' ? '預定中' : (s?.status==='pending' ? '未進料' : (s?.status==='used' ? '已使用' : '-')));
-          const dateForStatus = (function(){
-            const dSel = window.__selectedDate || '';
-            if(s?.status==='received') return dSel || (s?.plannedAt||'');
-            if(s?.status==='scheduled' || s?.status==='pending') return s?.plannedAt || '';
-            return s?.plannedAt || '';
-          })();
-          row.innerHTML=`
-            <div>${item.id}</div>
-            <div class="muted">${item.position||'-'}</div>
-            <div class="muted">${zhStatus}</div>
-            <div class="muted">${dateForStatus||'-'}</div>
-          `;
-          list.appendChild(row);
-          });
-          renderCharts();
-          renderBars();
+        /* Header ----------------------- */
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .back-btn {
+            padding: 10px 20px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
         }
 
-      function renderCharts(){
-        const num = (v)=>{ const n=Number(String(v??'').replace(/,/g,'')); return Number.isFinite(n)? n : 0; };
-        const libsArr = libs();
-        const totalQty = libsArr.reduce((s,i)=> s + num(i?.quantity), 0);
-        const recKeys = new Set(today().filter(r=>r.status==='received').map(r=> `${String(r.id)}|${String(r.position||'')}`));
-        const recQty = libsArr.reduce((s,i)=> s + (recKeys.has(`${String(i.id)}|${String(i.position||'')}`) ? num(i?.quantity) : 0), 0);
-        const usedQtyRaw = (used()||[]).reduce((s,u)=> s + num(u?.qty ?? u?.quantity ?? u?.usedQty), 0);
-        const usedQty = Math.min(usedQtyRaw, totalQty);
+        /* Dropdown --------------------- */
+        .select-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            background: #33343a;
+            color: #fff;
+            border: none;
+            margin-bottom: 20px;
+        }
 
-        const recRemain = Math.max(totalQty - recQty, 0);
-        const usedRemain = Math.max(totalQty - usedQty, 0);
+        /* Progress Circles ------------- */
+        .circle-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+        .circle-box {
+            width: 48%;
+            padding: 20px 0;
+            background: #2a2b31;
+            border-radius: 20px;
+            text-align: center;
+            color: #fff;
+        }
+        .circle-num {
+            font-size: 32px;
+            margin-bottom: 6px;
+        }
+        .circle-label {
+            color: #bbb;
+        }
 
-        const recPercent = totalQty? Math.round(recQty*100/totalQty) : 0;
-        const usedPercent = totalQty? Math.round(usedQty*100/totalQty) : 0;
+        /* Item List -------------------- */
+        .item-card {
+            background: #2a2b31;
+            padding: 16px;
+            border-radius: 16px;
+            margin-bottom: 18px;
+            color: #fff;
+        }
+        .item-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .item-sub {
+            margin-top: 6px;
+            color: #bbb;
+            font-size: 14px;
+            line-height: 20px;
+        }
+    </style>
 
-        const lr = document.getElementById('labelReceived');
-        const lu = document.getElementById('labelUsed');
-        if(lr) lr.textContent = `已進料 ${recQty}/${totalQty} (${recPercent}%)`;
-        if(lu) lu.textContent = `已使用 ${usedQty}/${totalQty} (${usedPercent}%)`;
+</head>
 
-        const ctxR = document.getElementById('chartReceived')?.getContext('2d');
-        const ctxU = document.getElementById('chartUsed')?.getContext('2d');
-        const cfgR = {
-          type: 'doughnut',
-          data: { datasets: [{ data: [recQty, recRemain], backgroundColor: ['#2f80ed', 'rgba(154,160,166,0.28)'], borderWidth: 0 }] },
-          options: { plugins: { legend: { display: false } }, cutout: '70%', responsive: false }
-        };
-        const cfgU = {
-          type: 'doughnut',
-          data: { datasets: [{ data: [usedQty, usedRemain], backgroundColor: ['#27ae60', 'rgba(154,160,166,0.28)'], borderWidth: 0 }] },
-          options: { plugins: { legend: { display: false } }, cutout: '70%', responsive: false }
-        };
-        if(ctxR){ if(!window._chartReceived){ window._chartReceived = new Chart(ctxR, cfgR); } else { window._chartReceived.data.datasets[0].data=[recQty,recRemain]; window._chartReceived.update(); } }
-        if(ctxU){ if(!window._chartUsed){ window._chartUsed = new Chart(ctxU, cfgU); } else { window._chartUsed.data.datasets[0].data=[usedQty,usedRemain]; window._chartUsed.update(); } }
-      }
+<body>
 
-      
-      (function setupDate(){
-        const dates = Array.from(new Set([
-          ...get('plannedItems', []).map(p=>p.plannedAt).filter(isDate),
-          ...get('todayRecords', []).map(r=>r.plannedAt).filter(isDate)
-        ])).sort();
-        const sel=document.getElementById('dateSel'); const btn=document.getElementById('applyDate');
-        if(sel){ sel.innerHTML='<option value="">全部日期</option>'+dates.map(d=>`<option value="${d}">${d}</option>`).join(''); }
-        if(btn){ btn.addEventListener('click',()=>{ window.__selectedDate = sel?.value || ''; render(); }); }
-      })();
+    <!-- Header -->
+    <div class="header-row">
+        <div class="header-title">進度表</div>
+        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
+    </div>
 
-      
+    <!-- Date Selector -->
+    <select id="dateFilter" class="select-box" onchange="renderList()">
+        <option value="all">全部日期</option>
+        <option value="2025-01-01">2025-01-01</option>
+        <option value="2025-01-02">2025-01-02</option>
+        <option value="2025-01-03">2025-01-03</option>
+    </select>
 
-      render();
-      
+    <!-- Progress Circles -->
+    <div class="circle-row">
+        <div class="circle-box">
+            <div class="circle-num" id="pIn">0%</div>
+            <div class="circle-label">已進料</div>
+            <div id="pInCount" class="circle-label">0 / 0</div>
+        </div>
+
+        <div class="circle-box">
+            <div class="circle-num" id="pUse">0%</div>
+            <div class="circle-label">已使用</div>
+            <div id="pUseCount" class="circle-label">0 / 0</div>
+        </div>
+    </div>
+
+    <!-- List -->
+    <div id="itemList"></div>
+
+    <script>
+        // 【示範假資料】之後會接你 Supabase 的資料
+        let records = [
+            { id: "UV0E3", pos: "32-33/F", plan: "2025-01-01", used: "" },
+            { id: "UV0E3", pos: "32-33/G", plan: "2025-01-01", used: "2025-01-03" },
+            { id: "UV0V1", pos: "32-33/F", plan: "2025-01-02", used: "" },
+            { id: "UV1B1", pos: "-",       plan: "2025-01-03", used: "2025-01-03" }
+        ];
+
+        function renderList() {
+            const filter = document.getElementById("dateFilter").value;
+            const list = document.getElementById("itemList");
+            list.innerHTML = "";
+
+            const filtered = filter === "all"
+                ? records
+                : records.filter(a => a.plan === filter);
+
+            // 計算進度
+            const total = filtered.length;
+            const inCount = filtered.filter(a => a.plan).length;
+            const useCount = filtered.filter(a => a.used).length;
+
+            document.getElementById("pIn").innerText =
+                total ? Math.round(inCount / total * 100) + "%" : "0%";
+
+            document.getElementById("pUse").innerText =
+                total ? Math.round(useCount / total * 100) + "%" : "0%";
+
+            document.getElementById("pInCount").innerText = `${inCount} / ${total}`;
+            document.getElementById("pUseCount").innerText = `${useCount} / ${total}`;
+
+            // 渲染列表
+            filtered.forEach(item => {
+                const card = document.createElement("div");
+                card.className = "item-card";
+
+                card.innerHTML = `
+                    <div class="item-title">${item.id}</div>
+                    <div class="item-sub">
+                        位置：${item.pos || "-"} <br>
+                        預計：${item.plan || "-"} <br>
+                        已使用：${item.used || "-"}
+                    </div>
+                `;
+
+                list.appendChild(card);
+            });
+        }
+
+        renderList();
     </script>
-  </body>
+
+</body>
 </html>
-      function renderBars(){
-        const barsEl=document.getElementById('progressBars'); if(!barsEl) return;
-        const comps=libs();
-        const num=(v)=>{ const n=Number(String(v??'').replace(/,/g,'')); return Number.isFinite(n)?n:0; };
-        const totalQty=comps.reduce((s,c)=> s + num(c?.quantity), 0);
-        const key=(x)=>`${String(x.id)}|${String(x.position||'')}`;
-        const recKeys=new Set(today().filter(r=>r.status==='received').map(key));
-        const recQty=comps.reduce((s,i)=> s + (recKeys.has(key(i))? num(i?.quantity):0), 0);
-        const usedQtyRaw=(used()||[]).reduce((s,u)=> s + num(u?.qty??u?.quantity??u?.usedQty), 0);
-        const usedQty=Math.min(usedQtyRaw,totalQty);
-        const mkBar=(label, cls, numv, denom)=>{
-          const row=document.createElement('div'); row.className='bar-row';
-          const pct = denom>0 ? Math.min(100, Math.max(0, numv/denom*100)) : 0;
-          row.innerHTML=`<div class="muted" style="min-width:96px">${label}</div><div class="bar"><div class="fill ${cls}" style="width:${pct.toFixed(2)}%"></div></div><div class="muted" style="min-width:160px;text-align:right">${numv} / ${denom}</div>`;
-          return row;
-        };
-        barsEl.innerHTML='';
-        barsEl.appendChild(mkBar('已進料進度','received',recQty,totalQty));
-        barsEl.appendChild(mkBar('已使用進度','used',usedQty,totalQty));
-      }
