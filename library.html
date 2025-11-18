@@ -1,255 +1,200 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>構件庫</title>
     <link rel="stylesheet" href="styles.css">
+
+    <style>
+        body { padding: 20px; }
+
+        /* 標題列 */
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .back-btn {
+            padding: 10px 20px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        /* 狀態分類 */
+        .status-filter {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            background: #1e1f25;
+            padding: 12px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+        }
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #2a2b31;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: #ddd;
+            cursor: pointer;
+        }
+        .status-pill.active {
+            background: #3c3e45;
+            font-weight: bold;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-gray { background: #888; }
+        .dot-blue { background: #4aa3ff; }
+        .dot-orange { background: #ff9f3f; }
+        .dot-green { background: #52d96b; }
+
+        /* 搜尋框 */
+        .search-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: #2a2b31;
+            color: #fff;
+            margin-bottom: 18px;
+        }
+
+        /* 按鈕 */
+        .btn-block {
+            width: 100%;
+            padding: 14px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 14px;
+            margin-bottom: 12px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        /* 排序下拉 */
+        select.sort-select {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            background: #2a2b31;
+            color: #fff;
+            border: none;
+            margin-bottom: 18px;
+        }
+
+        /* 提示文字 */
+        .hint {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        /* 構件卡片 */
+        .item-card {
+            background: #2a2b31;
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        .item-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #4aa3ff;
+        }
+    </style>
 </head>
 
 <body>
 
-<!-- 頂部標題 -->
-<header class="top-bar">
-    <div class="top-bar-title">構件庫</div>
-</header>
-
-<main>
-
-<!-- 狀態 Chips -->
-<section class="screen-card">
-    <div class="chip-row">
-        <div class="chip" data-status="none">未進料</div>
-        <div class="chip chip-yellow" data-status="planned">預定中</div>
-        <div class="chip chip-orange" data-status="received">已進料</div>
-        <div class="chip chip-green" data-status="used">已使用</div>
+    <!-- 標頭 -->
+    <div class="header-row">
+        <div class="header-title">構件庫</div>
+        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
     </div>
-</section>
 
-<!-- 搜尋欄 -->
-<section class="screen-card">
-    <input id="searchBar" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
-</section>
+    <!-- 狀態分類 -->
+    <div class="status-filter">
+        <div class="status-pill" data-status="not_received">
+            <span class="dot dot-gray"></span> 未進料
+        </div>
+        <div class="status-pill" data-status="planned">
+            <span class="dot dot-blue"></span> 預定中
+        </div>
+        <div class="status-pill" data-status="received">
+            <span class="dot dot-orange"></span> 已進料
+        </div>
+        <div class="status-pill" data-status="used">
+            <span class="dot dot-green"></span> 已使用
+        </div>
+    </div>
 
-<!-- 匯入 / 模板 -->
-<section class="screen-card row-btns">
-    <button class="ghost-btn full" onclick="importCSV()">匯入 Excel / CSV</button>
-    <button class="ghost-btn full" onclick="downloadTemplate()">下載 CSV 模板</button>
-</section>
+    <!-- 搜尋框 -->
+    <input class="search-box" id="searchInput"
+        placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
 
-<!-- 排序 -->
-<section class="screen-card">
-    <label class="field-label">排序：</label>
-    <select id="sortSelect" class="input-bar">
-        <option value="id-asc">構件名稱 ↑</option>
-        <option value="id-desc">構件名稱 ↓</option>
-        <option value="position-asc">位置 ↑</option>
-        <option value="position-desc">位置 ↓</option>
-        <option value="spec-asc">規格 ↑</option>
-        <option value="spec-desc">規格 ↓</option>
-        <option value="weight-asc">重量 ↑</option>
-        <option value="weight-desc">重量 ↓</option>
-        <option value="qty-asc">數量 ↑</option>
-        <option value="qty-desc">數量 ↓</option>
+    <!-- 匯入/匯出 -->
+    <div class="btn-block" onclick="importLibrary()">匯入 Excel / CSV</div>
+    <div class="btn-block" onclick="downloadTemplate()">下載 CSV 模板</div>
+
+    <!-- 排序 -->
+    <select class="sort-select" id="sortSelect">
+        <option value="nameAsc">排序：構件名稱 ↑</option>
+        <option value="nameDesc">排序：構件名稱 ↓</option>
+        <option value="status">排序：構件狀態</option>
+        <option value="qty">排序：構件數量</option>
+        <option value="planned_date">排序：預計日期</option>
+        <option value="used_date">排序：使用日期</option>
     </select>
-</section>
 
-<!-- 說明文字 -->
-<section class="screen-card">
-    <div class="note-text">
-        • 構件庫匯入格式為 6 欄  
-        • 構件編號 / 規格 / 材質 / 重量 / 位置 / 數量  
-        • 建議先下載模板再進行編輯  
+    <!-- 提示 -->
+    <div class="hint">
+        • 構件庫匯入格式為 6 欄。  
+        • 建議先下載模板再進行編輯。
     </div>
-</section>
 
-<!-- 構件列表 -->
-<section class="screen-card" id="listContainer">
-    <!-- 動態生成 -->
-</section>
+    <!-- 構件列表 -->
+    <div id="itemList">
+        <!-- JS 會動態生成構件卡片 -->
+    </div>
 
-</main>
+    <script src="back.js"></script>
 
-<script src="back.js"></script>
-<script>
-/* ---------------------------
-   全局資料
-----------------------------*/
-let rawList = [];   // 原始構件
-let statusMaps = {}; // 用於判斷狀態
-let activeStatus = ""; // 篩選狀態
-let keyword = "";
-let sortMode = "id-asc";
-
-/* ---------------------------
-   初始化
-----------------------------*/
-document.addEventListener("DOMContentLoaded", () => {
-    loadLibrary();
-    bindEvents();
-});
-
-function bindEvents() {
-    document.getElementById("searchBar").addEventListener("input", (e)=> {
-        keyword = e.target.value.trim();
-        renderList();
-    });
-
-    document.getElementById("sortSelect").addEventListener("change", (e)=>{
-        sortMode = e.target.value;
-        renderList();
-    });
-
-    document.querySelectorAll(".chip").forEach(chip=>{
-        chip.addEventListener("click", ()=>{
-            if (activeStatus === chip.dataset.status){
-                activeStatus = "";
-                chip.classList.remove("active-chip");
-            } else {
-                activeStatus = chip.dataset.status;
-                document.querySelectorAll(".chip").forEach(c=> c.classList.remove("active-chip"));
-                chip.classList.add("active-chip");
-            }
-            renderList();
+    <script>
+        /* 狀態分類切換 */
+        const pills = document.querySelectorAll(".status-pill");
+        pills.forEach(p => {
+            p.addEventListener("click", () => {
+                pills.forEach(x => x.classList.remove("active"));
+                p.classList.add("active");
+                filterByStatus(p.dataset.status);
+            });
         });
-    });
-}
 
-/* ---------------------------
-   讀取構件庫
-----------------------------*/
-function loadLibrary(){
-    rawList = db_read("componentsLibrary") || [];
-    statusMaps = buildStatusMaps();
-    renderList();
-}
+        function filterByStatus(s) {
+            console.log("狀態切換：", s);
+            // TODO：你後續資料庫完成後再填寫
+        }
 
-/* ---------------------------
-   渲染清單
-----------------------------*/
-function renderList(){
-    let list = rawList.slice();
+        function importLibrary() {
+            alert("匯入功能尚未連接（等待 Supabase）。");
+        }
 
-    // 狀態過濾
-    list = list.filter(item => matchStatus(item));
-
-    // 關鍵字搜尋
-    if (keyword){
-        const k = keyword.toLowerCase();
-        list = list.filter(x =>
-            String(x.id||"").toLowerCase().includes(k) ||
-            String(x.spec||"").toLowerCase().includes(k) ||
-            String(x.material||"").toLowerCase().includes(k) ||
-            String(x.position||"").toLowerCase().includes(k) ||
-            String(x.weight||"").toLowerCase().includes(k) ||
-            String(x.quantity||"").toLowerCase().includes(k)
-        );
-    }
-
-    // 排序
-    list.sort(sortFunction);
-
-    // 清空並重建
-    const box = document.getElementById("listContainer");
-    box.innerHTML = "";
-
-    if (!list.length){
-        box.innerHTML = `<div class="empty-text">目前沒有構件資料</div>`;
-        return;
-    }
-
-    list.forEach(item=>{
-        const k = keyOf(item);
-        const isReceived = statusMaps.receivedKeys?.has(k);
-        const usedQty = statusMaps.usedSumByKey?.get(k) || 0;
-        const statusColor =
-            usedQty > 0 ? "green" :
-            isReceived ? "orange" : 
-            ""; 
-
-        const card = document.createElement("div");
-        card.className = "list-card";
-
-        card.innerHTML = `
-            <div class="list-card-row">
-                <span class="item-id">${item.id || ""}</span>
-                <span class="status-dot ${statusColor}"></span>
-            </div>
-            <div class="list-sub">規格：${item.spec || "-"}</div>
-            <div class="list-sub">材質：${item.material || "-"}</div>
-            <div class="list-sub">位置：${item.position || "-"}</div>
-            <div class="list-sub">重量：${item.weight || 0}</div>
-            <div class="list-sub">數量：${item.quantity || 0}</div>
-        `;
-        box.appendChild(card);
-    });
-}
-
-/* ---------------------------
-   匯入 CSV
-----------------------------*/
-function importCSV(){
-    alert("匯入功能預留，稍後會整合 Excel / CSV 解析");
-}
-
-/* ---------------------------
-   下載 CSV 模板
-----------------------------*/
-function downloadTemplate(){
-    const csv =
-`構件編號,構件規格,構件材質,構件重量,構件位置,構件數量
-UVOE3,PL-25*500*650,SN490BM,112.2936,0/A,3`;
-
-    const blob = new Blob([csv], {type:"text/csv"});
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "構件庫模板.csv";
-    a.click();
-
-    URL.revokeObjectURL(url);
-}
-
-/* ---------------------------
-   狀態篩選器
-----------------------------*/
-function matchStatus(item){
-    if (!activeStatus) return true;
-
-    const k = keyOf(item);
-    const isReceived = statusMaps.receivedKeys?.has(k);
-    const usedQty = statusMaps.usedSumByKey?.get(k) || 0;
-
-    switch(activeStatus){
-        case "none": return !isReceived && usedQty === 0;
-        case "planned": return false; // 預定中未實作
-        case "received": return isReceived;
-        case "used": return usedQty > 0;
-    }
-    return true;
-}
-
-/* ---------------------------
-   排序函數
-----------------------------*/
-function sortFunction(a,b){
-    switch(sortMode){
-        case "id-asc": return String(a.id).localeCompare(String(b.id));
-        case "id-desc": return String(b.id).localeCompare(String(a.id));
-        case "position-asc": return String(a.position).localeCompare(String(b.position));
-        case "position-desc": return String(b.position).localeCompare(String(a.position));
-        case "spec-asc": return String(a.spec).localeCompare(String(b.spec));
-        case "spec-desc": return String(b.spec).localeCompare(String(a.spec));
-        case "weight-asc": return (Number(a.weight)||0) - (Number(b.weight)||0);
-        case "weight-desc": return (Number(b.weight)||0) - (Number(a.weight)||0);
-        case "qty-asc": return (Number(a.quantity)||0) - (Number(b.quantity)||0);
-        case "qty-desc": return (Number(b.quantity)||0) - (Number(a.quantity)||0);
-    }
-    return 0;
-}
-
-</script>
-
+        function downloadTemplate() {
+            location.href = "library_template.csv";
+        }
+    </script>
 </body>
 </html>
