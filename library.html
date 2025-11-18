@@ -1,291 +1,230 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>構件庫</title>
+<meta charset="UTF-8">
+<title>構件庫</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
-    <link rel="stylesheet" href="styles.css">
+<style>
+.status-dot { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:6px; }
+.dot-gray { background:#888; }
+.dot-yellow { background:#f1c40f; }
+.dot-orange { background:#e67e22; }
+.dot-green { background:#2ecc71; }
 
-    <!-- SheetJS（Excel 讀取）-->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+.item-card {
+    background:#141821;
+    padding:14px;
+    border-radius:14px;
+    margin:10px 0;
+    border:1px solid #1f2735;
+}
+</style>
 
-    <!-- Supabase 客戶端程式庫 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-    <!-- config.js（你的 URL + Key）-->
-    <script src="config.js"></script>
-
-    <style>
-    .item-card{
-        background:#1c2433;
-        padding:16px;
-        border-radius:16px;
-        margin-bottom:12px;
-    }
-    .item-title{font-size:17px;font-weight:700;color:#fff;}
-    .item-sub{color:#ccc;margin-top:6px;font-size:14px;}
-
-    .status-dot{
-        width:12px;
-        height:12px;
-        border-radius:50%;
-        margin-right:6px;
-    }
-    </style>
 </head>
 
 <body>
 
 <div class="top-bar">
     <div class="top-bar-title">構件庫</div>
-
-    <div class="top-bar-actions">
-        <button class="top-btn" onclick="location.href='index.html'">返回主畫面</button>
-    </div>
+    <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
 <div class="screen-card">
 
+    <!-- 構件狀態 -->
     <div class="section-title">構件狀態</div>
 
-    <div class="row" style="margin-bottom:16px;">
-        <label><input type="radio" name="s" onclick="filterStatus('all')" checked> 全部</label>
-        <label><input type="radio" name="s" onclick="filterStatus('unreceived')"> 未進料</label>
-        <label><input type="radio" name="s" onclick="filterStatus('planned')"> 預定中</label>
-        <label><input type="radio" name="s" onclick="filterStatus('received')"> 已進料</label>
-        <label><input type="radio" name="s" onclick="filterStatus('used')"> 已使用</label>
+    <div class="row" style="margin-bottom:12px;">
+        <label><input type="radio" name="status" value="全部" checked> 全部</label>
+        <label><span class="status-dot dot-gray"></span> 未進料</label>
+        <label><span class="status-dot dot-yellow"></span> 預定中</label>
+        <label><span class="status-dot dot-orange"></span> 已進料</label>
+        <label><span class="status-dot dot-green"></span> 已使用</label>
     </div>
 
-    <input id="searchBox" class="input-bar" placeholder="搜尋：編號/規格/位置/材質…" oninput="applyFilters()">
+    <!-- 搜尋 -->
+    <input id="searchInput" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
 
-    <button class="primary-btn full" onclick="document.getElementById('fileInput').click()">匯入 Excel / CSV</button>
-    <input id="fileInput" type="file" accept=".xlsx,.csv" style="display:none" onchange="handleFile(event)">
+    <!-- 匯入 EXCEL -->
+    <button class="primary-btn" onclick="document.getElementById('fileInput').click()">匯入 Excel / CSV</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
 
-    <button class="ghost-btn full" onclick="downloadTemplate()">下載 CSV 模板</button>
+    <!-- 下載模板 -->
+    <button class="ghost-btn full" onclick="downloadCSVTemplate()">下載 CSV 模板</button>
 
-    <div class="field-label">排序方式</div>
-    <select id="sortMode" class="input-bar" onchange="applyFilters()">
-        <option value="id_asc">構件編號 ↑</option>
-        <option value="id_desc">構件編號 ↓</option>
-        <option value="status">依狀態排序</option>
+    <!-- 排序 -->
+    <label class="field-label">排序方式</label>
+    <select id="sortMethod" class="input-bar" onchange="renderList()">
+        <option value="item_id_asc">構件編號 ↑</option>
+        <option value="item_id_desc">構件編號 ↓</option>
+        <option value="qty_asc">數量 ↑</option>
+        <option value="qty_desc">數量 ↓</option>
     </select>
 
+    <div id="listArea"></div>
 </div>
 
-<div id="listContainer" style="margin:16px;"></div>
-
-
-
 <script>
-/* ===========================================================
-   Excel / CSV 匯入
-=========================================================== */
-function handleFile(event) {
-    const file = event.target.files[0];
-    if (!file) return alert("沒有選擇檔案");
+/* -------------------------------
+   Supabase 設定
+--------------------------------- */
+const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
+
+let components = [];
+
+/* -------------------------------
+   檔案匯入
+--------------------------------- */
+document.getElementById("fileInput").addEventListener("change", handleFile);
+
+async function handleFile(evt){
+    const file = evt.target.files[0];
+    if(!file){ return; }
 
     const reader = new FileReader();
 
-    reader.onload = async function(e) {
-        const data = new Uint8Array(e.target.result);
+    reader.onload = async (e) => {
+        let wb;
 
-        const workbook = XLSX.read(data, { type:"array", raw:true });
-
-        let sheetName = workbook.SheetNames.find(name => {
-            const s = workbook.Sheets[name];
-            return XLSX.utils.sheet_to_json(s, { defval:"" }).length > 0;
-        });
-
-        if (!sheetName) return alert("Excel 無資料");
-
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet, { defval:"", raw:true });
-
-        const col = detectColumns(Object.keys(rows[0]));
-        if (!col) {
-            return alert("Excel 欄位錯誤，請下載模板確認格式！");
+        // Excel
+        if(file.name.endsWith(".xlsx") || file.name.endsWith(".xls")){
+            wb = XLSX.read(e.target.result, { type:"binary", cellDates:true });
+        } 
+        // CSV（以 UTF-8 讀取避免亂碼）
+        else if(file.name.endsWith(".csv")){
+            wb = XLSX.read(e.target.result, { type:"binary", codepage:65001 });
         }
 
-        const uploadData = rows.map(r => ({
-            item_id: r[col.id],
-            spec: r[col.spec],
-            material: r[col.mat],
-            position: r[col.pos],
-            weight: Number(r[col.weight]),
-            qty: Number(r[col.qty]),
-            status: detectStatus(r)
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { defval:"" });
+
+        const rows = raw.map(r => ({
+            item_id: r["構件編號"] || "",
+            spec: r["構件規格"] || "",
+            material: r["構件材質"] || "",
+            weight: Number(r["構件重量"] || 0),
+            position: r["構件位置"] || "",
+            qty: Number(r["構件數量"] || 0)
         }));
 
-        const { error } = await supabase
-            .from("components_library")
-            .insert(uploadData);
+        // 欄位驗證
+        for(const x of rows){
+            if(!x.item_id){
+                alert("缺少必要欄位：構件編號\n請下載模板確認格式");
+                return;
+            }
+        }
 
-        if (error) return alert("上傳失敗：" + error.message);
+        // 寫入 Supabase
+        const { error } = await fetch(SUPABASE_URL + "/rest/v1/components_library", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_KEY,
+                "Authorization": "Bearer " + SUPABASE_KEY,
+                "Prefer": "resolution=merge-duplicates"
+            },
+            body: JSON.stringify(rows)
+        });
 
-        alert("匯入成功！");
-        loadData();
+        if(error){
+            console.error(error);
+            alert("上傳失敗：" + error.message);
+        } else {
+            alert("匯入成功");
+            loadData();
+        }
     };
 
-    reader.readAsArrayBuffer(file);
+    reader.readAsBinaryString(file);
 }
 
+/* -------------------------------
+   載入資料
+--------------------------------- */
+async function loadData(){
+    const { data, error } = await fetch(SUPABASE_URL + "/rest/v1/components_library?select=*", {
+        headers:{
+            "apikey": SUPABASE_KEY,
+            "Authorization":"Bearer " + SUPABASE_KEY
+        }
+    }).then(r => r.json().then(d => ({ data:d, error:null })).catch(() => ({ data:null, error:true })));
 
-/* ===========================================================
-   欄位自動偵測（支援各種 Excel 名稱）
-=========================================================== */
-function detectColumns(cols) {
-    cols = cols.map(c=>c.trim());
-
-    const find = (...names)=> cols.find(c => names.includes(c));
-
-    const id = find("鐵件編號","構件編號","編號","ID");
-    const spec = find("規格","規格尺寸");
-    const mat = find("材質","材料");
-    const pos = find("位置","構件位置","安裝位置");
-    const weight = find("重量","單重");
-    const qty = find("數量","pcs","數量pcs");
-
-    if (!id||!spec||!mat||!pos||!weight||!qty) return null;
-    return { id, spec, mat, pos, weight, qty };
+    components = data || [];
+    renderList();
 }
 
+loadData();
 
-/* ===========================================================
-   狀態分類
-=========================================================== */
-function detectStatus(row) {
-    const usedQty = Number(row["已使用數量"] || 0);
-    const rec = row["進料日期"]?.toString().trim();
-    const plan = row["預定日期"]?.toString().trim();
-
-    if (usedQty > 0) return "used";
-    if (rec) return "received";
-    if (plan) return "planned";
-    return "unreceived";
+/* -------------------------------
+   狀態判斷（4 色分類）
+--------------------------------- */
+function getStatusColor(item){
+    // 現階段：預設皆為「未進料」
+    return "dot-gray";
 }
 
+/* -------------------------------
+   列表渲染
+--------------------------------- */
+function renderList(){
+    const area = document.getElementById("listArea");
+    area.innerHTML = "";
 
-/* ===========================================================
-   下載 CSV 模板（UTF-8+BOM，Excel 不亂碼）
-=========================================================== */
-function downloadTemplate() {
-    const content =
-"鐵件編號,規格,材質,位置,重量,數量\n" +
-"SAMPLE-01,H100x50x5x7,SS400,A1-01,12.5,4\n";
+    const txt = document.getElementById("searchInput").value.trim();
 
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + content], {
-        type:"text/csv;charset=utf-8;"
+    let list = components.filter(x => {
+        return (
+            x.item_id.includes(txt) ||
+            x.spec.includes(txt) ||
+            x.material.includes(txt) ||
+            x.position.includes(txt)
+        );
     });
 
+    const sort = document.getElementById("sortMethod").value;
+
+    if(sort === "item_id_asc") list.sort((a,b)=>a.item_id.localeCompare(b.item_id));
+    if(sort === "item_id_desc") list.sort((a,b)=>b.item_id.localeCompare(a.item_id));
+    if(sort === "qty_asc") list.sort((a,b)=>a.qty - b.qty);
+    if(sort === "qty_desc") list.sort((a,b)=>b.qty - a.qty);
+
+    list.forEach(item => {
+        const dot = getStatusColor(item);
+
+        area.innerHTML += `
+            <div class="item-card">
+                <div><span class="status-dot ${dot}"></span><b>${item.item_id}</b></div>
+                <div class="muted-sm">${item.spec}</div>
+                <div class="muted-sm">材質：${item.material}　重量：${item.weight}</div>
+                <div class="muted-sm">位置：${item.position}　數量：${item.qty}</div>
+            </div>
+        `;
+    });
+}
+
+/* -------------------------------
+   CSV 模板下載（UTF-8）
+--------------------------------- */
+function downloadCSVTemplate(){
+    const rows = [
+        ["構件編號","構件規格","構件材質","構件重量","構件位置","構件數量"],
+        ["UV0E3","PL25*500*650","SN490BM","89","32-33/F","1"]
+    ];
+
+    let csv = rows.map(r => r.join(",")).join("\n");
+
+    const blob = new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = "構件庫模板.csv";
     a.click();
 }
-
-
-/* ===========================================================
-   Supabase 資料載入
-=========================================================== */
-let allItems = [];
-let currentFilter = "all";
-
-async function loadData() {
-    const { data, error } = await supabase
-        .from("components_library")
-        .select("*")
-        .order("item_id");
-
-    if (error) return alert("讀取失敗：" + error.message);
-
-    allItems = data;
-    applyFilters();
-}
-
-
-/* ===========================================================
-   搜尋 + 排序 + 狀態
-=========================================================== */
-function filterStatus(s) {
-    currentFilter = s;
-    applyFilters();
-}
-
-function applyFilters() {
-    let list = [...allItems];
-
-    if (currentFilter !== "all") {
-        list = list.filter(x => x.status === currentFilter);
-    }
-
-    const q = document.getElementById("searchBox").value.trim().toLowerCase();
-    if (q) {
-        list = list.filter(x => JSON.stringify(x).toLowerCase().includes(q));
-    }
-
-    const s = document.getElementById("sortMode").value;
-    if (s === "id_asc")  list.sort((a,b)=>a.item_id.localeCompare(b.item_id));
-    if (s === "id_desc") list.sort((a,b)=>b.item_id.localeCompare(a.item_id));
-    if (s === "status")  list.sort((a,b)=>a.status.localeCompare(b.status));
-
-    renderList(list);
-}
-
-
-/* ===========================================================
-   顯示列表
-=========================================================== */
-function renderList(list) {
-    const c = document.getElementById("listContainer");
-    c.innerHTML = "";
-
-    list.forEach(item=>{
-        const color = getStatusColor(item.status);
-
-        const card = document.createElement("div");
-        card.className = "item-card";
-        card.style.borderLeft = `6px solid ${color}`;
-
-        card.innerHTML = `
-            <div class="row">
-                <div class="status-dot" style="background:${color}"></div>
-                <div class="item-title">${item.item_id}</div>
-            </div>
-            <div class="item-sub">${item.position || "-"}</div>
-            <div class="item-sub">${item.spec || "-"}</div>
-            <div class="item-sub">重量：${item.weight || "-"}　數量：${item.qty || "-"}</div>
-            <div class="item-sub" style="margin-top:6px;">狀態：<span style="color:${color}">${translateStatus(item.status)}</span></div>
-        `;
-
-        c.appendChild(card);
-    });
-}
-
-function getStatusColor(s) {
-    return {
-        unreceived: "#888",
-        planned: "#f1c40f",
-        received: "#e67e22",
-        used: "#2ecc71"
-    }[s] || "#999";
-}
-
-function translateStatus(s) {
-    return {
-        unreceived:"未進料",
-        planned:"預定中",
-        received:"已進料",
-        used:"已使用"
-    }[s];
-}
-
-/* ===========================================================
-   初始化
-=========================================================== */
-loadData();
-
 </script>
 
 </body>
