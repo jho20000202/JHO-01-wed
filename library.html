@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>構件庫</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -16,7 +17,7 @@
     </div>
 </div>
 
-<!-- 主卡片 -->
+<!-- 主內容卡片 -->
 <div class="screen-card">
 
     <!-- 狀態分類 -->
@@ -46,9 +47,9 @@
 
     <!-- 搜尋 -->
     <label class="field-label">搜尋構件</label>
-    <input class="input-bar" id="searchInput" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
+    <input class="input-bar" id="searchInput" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="applyFilters()">
 
-    <!-- 按鈕列 -->
+    <!-- 匯入 / 模板 -->
     <div class="row-btns full">
         <button class="primary-btn" onclick="uploadCsv()">匯入 Excel / CSV</button>
         <button class="ghost-btn" onclick="downloadTemplate()">下載 CSV 模板</button>
@@ -56,7 +57,7 @@
 
     <!-- 排序 -->
     <label class="field-label">排序方式</label>
-    <select class="input-bar" id="sortSelect">
+    <select class="input-bar" id="sortSelect" onchange="applyFilters()">
         <option value="name-asc">構件名稱 ↑</option>
         <option value="name-desc">構件名稱 ↓</option>
         <option value="position">位置</option>
@@ -66,9 +67,210 @@
 </div>
 
 <!-- 構件列表 -->
-<div class="section" id="listContainer">
-    <!-- JS 會動態填入 -->
-</div>
+<div class="section" id="listContainer"></div>
+
+<!-- 隱藏檔案 input -->
+<input id="fileInput" type="file" accept=".csv" style="display:none" onchange="handleFile(event)">
+
+
+<script>
+/* ---------------------------
+   Supabase 初始化
+---------------------------- */
+const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ---------------------------
+   全域資料
+---------------------------- */
+let allComponents = [];
+let filteredComponents = [];
+
+const STATUS_PRIORITY = {
+    "used": 3,
+    "received": 2,
+    "planned": 1,
+    "none": 0
+};
+
+function getStatusDot(colorClass) {
+    return `<span style="width:12px;height:12px;border-radius:50%;margin-right:6px;background:${colorClass}"></span>`;
+}
+
+/* ---------------------------
+   載入資料（構件庫 + 預定 + 今天紀錄）
+---------------------------- */
+async function loadComponents() {
+
+    const list = document.getElementById("listContainer");
+    list.innerHTML = "<div class='muted'>讀取中...</div>";
+
+    const [{ data: comps }, { data: plans }, { data: recs }] = await Promise.all([
+        client.from("components_library").select("*"),
+        client.from("planned_items").select("item_id"),
+        client.from("today_records").select("item_id,status")
+    ]);
+
+    const plannedSet = new Set(plans?.map(p => p.item_id));
+    const statusMap = new Map();
+
+    recs?.forEach(r => {
+        if (r.status === "used") statusMap.set(r.item_id, "used");
+        else if (r.status === "received" && !statusMap.has(r.item_id))
+            statusMap.set(r.item_id, "received");
+    });
+
+    allComponents = comps?.map(c => {
+        let status = "none";
+
+        if (statusMap.has(c.item_id)) status = statusMap.get(c.item_id);
+        else if (plannedSet.has(c.item_id)) status = "planned";
+
+        return { ...c, status };
+    }) || [];
+
+    applyFilters();
+}
+
+/* ---------------------------
+   搜尋 + 排序
+---------------------------- */
+function applyFilters() {
+    const kw = document.getElementById("searchInput").value.toLowerCase();
+    const sort = document.getElementById("sortSelect").value;
+
+    filteredComponents = allComponents.filter(c => {
+        if (!kw) return true;
+        return (
+            String(c.item_id).toLowerCase().includes(kw) ||
+            String(c.spec).toLowerCase().includes(kw) ||
+            String(c.position).toLowerCase().includes(kw) ||
+            String(c.weight).toLowerCase().includes(kw) ||
+            String(c.qty).toLowerCase().includes(kw)
+        );
+    });
+
+    // 排序
+    filteredComponents.sort((a, b) => {
+        if (sort === "name-asc") return a.item_id.localeCompare(b.item_id, "zh-Hant");
+        if (sort === "name-desc") return b.item_id.localeCompare(a.item_id, "zh-Hant");
+        if (sort === "position") return String(a.position).localeCompare(String(b.position));
+        if (sort === "status") {
+            const as = STATUS_PRIORITY[a.status], bs = STATUS_PRIORITY[b.status];
+            if (as !== bs) return bs - as;  
+            return a.item_id.localeCompare(b.item_id);
+        }
+        return 0;
+    });
+
+    renderList();
+}
+
+/* ---------------------------
+   顯示列表
+---------------------------- */
+function renderList() {
+    const list = document.getElementById("listContainer");
+
+    if (!filteredComponents.length) {
+        list.innerHTML = "<div class='muted'>沒有符合條件的構件</div>";
+        return;
+    }
+
+    let html = "";
+
+    filteredComponents.forEach(c => {
+        const color = 
+            c.status === "used" ? "#27ae60"
+          : c.status === "received" ? "#f97316"
+          : c.status === "planned" ? "#eab308"
+          : "#6b7280";
+
+        html += `
+        <div class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div class="app-title">${c.item_id}</div>
+                <div class="row muted-sm">
+                    <span style="width:12px;height:12px;border-radius:50%;background:${color};margin-right:6px;"></span>
+                    ${getStatusName(c.status)}
+                </div>
+            </div>
+
+            <div class="muted-sm">規格：${c.spec || "-"}</div>
+            <div class="muted-sm">位置：${c.position || "-"}</div>
+            <div class="muted-sm">重量：${c.weight ?? "-"}</div>
+            <div class="muted-sm">數量：${c.qty ?? "-"}</div>
+        </div>`;
+    });
+
+    list.innerHTML = html;
+}
+
+function getStatusName(s) {
+    return s === "used" ? "已使用"
+         : s === "received" ? "已進料"
+         : s === "planned" ? "預定中"
+         : "未進料";
+}
+
+/* ---------------------------
+   CSV 匯入
+---------------------------- */
+function uploadCsv() {
+    document.getElementById("fileInput").click();
+}
+
+async function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!confirm("匯入會覆蓋現有構件庫資料，確定？")) return;
+
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(x => x.trim());
+    const rows = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(",");
+        rows.push({
+            item_id: cols[0],
+            spec: cols[1],
+            position: cols[4],
+            weight: parseFloat(cols[3]) || null,
+            qty: parseFloat(cols[5]) || null
+        });
+    }
+
+    await client.from("components_library").delete().neq("id", 0);
+    await client.from("components_library").insert(rows);
+    alert("匯入完成");
+    loadComponents();
+}
+
+/* ---------------------------
+   CSV 模板
+---------------------------- */
+function downloadTemplate() {
+    const csv = 
+`構件編號,構件規格,構件材質,構件重量,構件位置,構件數量
+UV0E3,PL25*500*650,SN490BM,89,32-33/F,1`;
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "構件庫模板.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/* ---------------------------
+   頁面初始化
+---------------------------- */
+loadComponents();
+
+</script>
 
 </body>
 </html>
