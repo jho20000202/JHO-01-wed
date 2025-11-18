@@ -61,10 +61,12 @@
     <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置">
 
     <!-- 📤 匯入 Excel 自動解析 -->
-    <div class="section-title">上傳 Excel / CSV</div>
+    <div class="section-title">匯入 Excel / CSV</div>
 
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="full">
+    <!-- 隱藏檔案選擇器（不顯示） -->
+    <input type="file" id="filePicker" accept=".xlsx,.xls,.csv" style="display:none">
 
+    <!-- 使用者按的按鈕 -->
     <div id="importBtn" class="primary-btn full">匯入 Excel / CSV</div>
 
     <!-- 📥 下載 CSV 模板 -->
@@ -78,23 +80,28 @@
     <div id="itemList"></div>
 </div>
 
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 /* ==========================================
    🔧 Supabase 初始化
 ========================================== */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";  // <<< 第二段會給你替換
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ==========================================
    📌 全域資料
 ========================================== */
-let components = []; // components_library
-let planned = [];    // planned_items
-let used = [];       // today_records
+let components = []; 
+let planned = [];    
+let used = [];       
 
 /* ==========================================
-   🟢 Step 1：讀取全部資料
+   🟢 Step 1：讀取資料
 ========================================== */
 async function loadData() {
     const { data: lib } = await db.from("components_library").select("*");
@@ -109,16 +116,17 @@ async function loadData() {
 }
 
 /* ==========================================
-   📌 Step 2：判斷構件狀態（四種顏色）
+   📌 Step 2：判斷構件狀態（四色）
 ========================================== */
 function getStatus(item_id) {
     const plan = planned.find(p => p.item_id === item_id);
     const useRec = used.find(u => u.item_id === item_id);
 
-    if (!plan && !useRec) return "grey";   // 未進料
-    if (plan && plan.status === "planned") return "yellow"; // 預定中
-    if (plan && plan.status === "received" && !useRec) return "orange"; // 已進料
-    if (plan && plan.status === "received" && useRec) return "green"; // 已使用
+    if (!plan && !useRec) return "grey";
+    if (plan && plan.status === "planned") return "yellow";
+    if (plan && plan.status === "received" && !useRec) return "orange";
+    if (plan && plan.status === "received" && useRec) return "green";
+
     return "grey";
 }
 
@@ -147,44 +155,44 @@ function renderList() {
                 <div class="item-sub">位置：${c.position || ""}</div>
                 <div class="item-sub">重量：${c.weight || ""} / 材質：${c.material || ""}</div>
                 <div class="item-sub">
-                    狀態： 
-                    ${status === "grey" ? "未進料" :
-                      status === "yellow" ? "預定中" :
-                      status === "orange" ? "已進料" : "已使用"}
+                    狀態：${
+                        status==="grey" ? "未進料" :
+                        status==="yellow" ? "預定中" :
+                        status==="orange" ? "已進料" :
+                        "已使用"
+                    }
                 </div>
-            </div>
-        `;
+            </div>`;
     });
 }
 
 /* ==========================================
-   🔍 搜尋即時運作
+   🔍 即時搜尋
 ========================================== */
 document.getElementById("searchBox").addEventListener("input", renderList);
 
 /* ==========================================
    📤 Step 4：匯入 Excel / CSV
 ========================================== */
-document.getElementById("fileInput").addEventListener("change", handleFile);
 document.getElementById("importBtn").addEventListener("click", () => {
-    const f = document.getElementById("fileInput").files[0];
-    if (!f) return alert("請先選擇檔案！");
-    handleFile({ target: { files: [f] } });
+    document.getElementById("filePicker").click();
 });
 
-async function handleFile(e) {
+document.getElementById("filePicker").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    alert("正在匯入資料…");
+
     const ext = file.name.split(".").pop().toLowerCase();
-    const data = await file.arrayBuffer();
+    const buffer = await file.arrayBuffer();
     let json = [];
 
     try {
         if (ext === "csv") {
-            json = csvToJSON(new TextDecoder("utf-8").decode(new Uint8Array(data)));
+            json = csvToJSON(new TextDecoder("utf-8").decode(new Uint8Array(buffer)));
         } else {
-            const wb = XLSX.read(data, { type: "array" });
+            const wb = XLSX.read(buffer, { type:"array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             json = XLSX.utils.sheet_to_json(ws);
         }
@@ -194,15 +202,17 @@ async function handleFile(e) {
         return;
     }
 
-    if (!json.length) return alert("檔案沒有資料");
-
-    // 必要欄位
-    const required = ["構件編號", "構件規格", "構件材質", "構件重量", "構件位置", "構件數量"];
-    for (let r of required) {
-        if (!json[0][r]) return alert("缺少必要欄位：" + r + "\n請下載模板確認格式");
+    if (!json.length) {
+        alert("檔案無資料");
+        return;
     }
 
-    // 組成資料
+    const required = ["構件編號","構件規格","構件材質","構件重量","構件位置","構件數量"];
+
+    for (let r of required) {
+        if (!json[0][r]) return alert("缺少欄位：" + r);
+    }
+
     const insertData = json.map(r => ({
         item_id: String(r["構件編號"]).trim(),
         spec: r["構件規格"] || "",
@@ -212,21 +222,21 @@ async function handleFile(e) {
         qty: Number(r["構件數量"]) || 1
     }));
 
-    // 寫入資料庫
     const { error } = await db.from("components_library").upsert(insertData);
 
     if (error) {
         console.error(error);
-        alert("匯入失敗： " + error.message);
-        return;
+        alert("匯入失敗：" + error.message);
+    } else {
+        alert("匯入完成！");
+        loadData();
     }
 
-    alert("匯入完成！");
-    loadData(); // 重新載入清單
-}
+    e.target.value = "";
+});
 
 /* ==========================================
-   📥 CSV 模板下載（UTF-8）
+   📥 CSV 模板下載
 ========================================== */
 document.getElementById("downloadCSV").addEventListener("click", () => {
     const header = "構件編號,構件規格,構件材質,構件重量,構件位置,構件數量\n";
@@ -234,7 +244,7 @@ document.getElementById("downloadCSV").addEventListener("click", () => {
         "UV0E3,PL25*500*650,SN490BM,89,32-33/F,1\n" +
         "UV0V1,RH300*300*10*15*5836.8,SN490BM,576,32-33/H,1\n";
 
-    const blob = new Blob([header + sample], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([header + sample], { type:"text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -243,17 +253,16 @@ document.getElementById("downloadCSV").addEventListener("click", () => {
     a.click();
 });
 
-/* CSV → JSON (UTF-8 safe) */
+/* CSV → JSON */
 function csvToJSON(csv) {
-    const lines = csv.split("\n").map(l => l.trim()).filter(l => l);
+    const lines = csv.split("\n").map(l=>l.trim()).filter(l=>l);
     const headers = lines[0].split(",");
     const result = [];
 
-    for (let i = 1; i < lines.length; i++) {
+    for (let i=1;i<lines.length;i++) {
         const obj = {};
         const row = lines[i].split(",");
-
-        headers.forEach((h, idx) => obj[h] = row[idx] || "");
+        headers.forEach((h,idx)=> obj[h] = row[idx] || "");
         result.push(obj);
     }
     return result;
@@ -264,9 +273,5 @@ function csvToJSON(csv) {
 ========================================== */
 loadData();
 </script>
-
-<!-- Supabase CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 </body>
 </html>
