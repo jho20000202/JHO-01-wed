@@ -9,62 +9,42 @@
 
 <body>
 
-<!-- 頂部大橫條 -->
+<!-- 頂部標題 -->
 <header class="top-bar">
     <div class="top-bar-title">鋼構進出料記錄系統</div>
-    <div class="top-bar-actions">
-        <button class="top-btn" onclick="googleLogin()">Google 登入</button>
-        <button class="top-btn" onclick="openDiag()">診斷</button>
-    </div>
 </header>
 
 <main>
 
-<!-- 主功能按鈕區（六宮格） -->
+<!-- 六大功能按鈕 -->
 <section class="screen-card grid-2">
-    <button class="menu-btn" onclick="goProgress()">進度表</button>
-    <button class="menu-btn" onclick="goReport()">報表匯出</button>
+    <button class="menu-btn" onclick="location.href='planned.html'">預計進料登記</button>
+    <button class="menu-btn" onclick="location.href='confirm.html'">構件使用確認</button>
 
-    <button class="menu-btn" onclick="goPlanned()">預計進料登記</button>
-    <button class="menu-btn" onclick="goConfirm()">構件使用確認</button>
+    <button class="menu-btn" onclick="location.href='manage.html'">構件管理</button>
+    <button class="menu-btn" onclick="location.href='library.html'">構件庫</button>
 
-    <button class="menu-btn" onclick="goManage()">構件管理</button>
-    <button class="menu-btn" onclick="goLibrary()">構件庫</button>
+    <button class="menu-btn" onclick="location.href='progress.html'">進度表</button>
+    <button class="menu-btn" onclick="location.href='report.html'">報表匯出</button>
 </section>
 
 
-<!-- 雲端設定（Google Drive） -->
-<section class="screen-card">
-    <div class="section-title">雲端設定（Google Drive）</div>
-
-    <label class="field-label">Google Client ID</label>
-    <input id="googleClient" class="input-bar" placeholder="Google Client ID">
-
-    <label class="field-label">Drive 資料夾 ID（選填）</label>
-    <input id="driveFolder" class="input-bar" placeholder="資料夾 ID">
-
-    <button class="primary-btn" onclick="saveCloudSettings()">儲存</button>
-</section>
-
-
-<!-- 兩個圓環進度 -->
+<!-- 圓環進度總覽 -->
 <section class="screen-card progress-card">
     <div class="progress-wrapper">
-        <div class="circle-progress">
-            <div class="circle-text">
-                <div id="progressInPct">0%</div>
-                <small>已進料</small>
-            </div>
+        <div class="circle-progress" id="circleIn"></div>
+        <div class="progress-text">
+            <div id="progressInPct">0%</div>
+            <small>已進料</small>
         </div>
         <div class="progress-bottom" id="progressInTxt">0 / 0</div>
     </div>
 
     <div class="progress-wrapper">
-        <div class="circle-progress">
-            <div class="circle-text">
-                <div id="progressUsedPct">0%</</div>
-                <small>已使用</small>
-            </div>
+        <div class="circle-progress" id="circleUsed"></div>
+        <div class="progress-text">
+            <div id="progressUsedPct">0%</div>
+            <small>已使用</small>
         </div>
         <div class="progress-bottom" id="progressUsedTxt">0 / 0</div>
     </div>
@@ -78,18 +58,72 @@
     <div class="row-btns">
         <button class="ghost-btn" onclick="exportBackup()">備份匯出</button>
         <button class="ghost-btn" onclick="importBackup()">備份匯入</button>
-        <button class="ghost-btn" onclick="showLastExport()">最近匯出</button>
     </div>
 
-    <button class="danger-btn full" onclick="clearAll()">清除所有資料</button>
+    <button id="clearBtn" class="danger-btn full">清除所有資料</button>
 </section>
 
 </main>
 
 <script src="back.js"></script>
 <script>
-    // 首頁啟動時更新圓環
+/* -------------------------------------
+   首頁啟動：更新圓環進度
+--------------------------------------*/
+document.addEventListener("DOMContentLoaded", () => {
     loadDashboard();
+});
+
+/* -------------------------------------
+   清除所有資料（需要按兩次）
+--------------------------------------*/
+let clearState = 0;
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+    if (clearState === 0) {
+        alert("你確定要清除所有資料嗎？");
+        clearState = 1;
+        setTimeout(() => clearState = 0, 4000); // 4秒內有效
+        return;
+    }
+
+    if (clearState === 1) {
+        if (confirm("此動作無法復原，是否繼續？")) {
+            clearAll(); // back.js 內既有的功能
+        }
+        clearState = 0;
+    }
+});
+
+/* -------------------------------------
+   更新圓環（從 back.js 取得資料）
+--------------------------------------*/
+function loadDashboard() {
+    const planned = db_read("planned_items") || [];
+    const used = db_read("today_records") || [];
+    const library = db_read("components_library") || [];
+
+    const totalQty = library.reduce((sum, x) => sum + (x.qty || 0), 0);
+    const receivedQty = used.filter(x => x.status === "received").reduce((a, b) => a + (b.qty || 0), 0);
+    const usedQty = used.filter(x => x.status === "used").reduce((a, b) => a + (b.qty || 0), 0);
+
+    const pctIn = totalQty ? Math.round(receivedQty / totalQty * 100) : 0;
+    const pctUsed = totalQty ? Math.round(usedQty / totalQty * 100) : 0;
+
+    // 更新文字
+    document.getElementById("progressInPct").textContent = pctIn + "%";
+    document.getElementById("progressUsedPct").textContent = pctUsed + "%";
+    document.getElementById("progressInTxt").textContent = `${receivedQty} / ${totalQty}`;
+    document.getElementById("progressUsedTxt").textContent = `${usedQty} / ${totalQty}`;
+
+    // 更新圓環
+    document.getElementById("circleIn").style.background =
+        `conic-gradient(#2f7dff ${pctIn * 3.6}deg, #222 0deg)`;
+
+    document.getElementById("circleUsed").style.background =
+        `conic-gradient(#2f7dff ${pctUsed * 3.6}deg, #222 0deg)`;
+}
 </script>
+
 </body>
 </html>
