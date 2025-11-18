@@ -1,240 +1,219 @@
-<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>構件管理</title>
-    <link rel="stylesheet" href="styles.css?v=V6.1" />
+    <link rel="stylesheet" href="styles.css">
+
     <style>
-      .tools { display:flex; gap:8px; margin-top:12px; }
-      .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-      .list-item { grid-template-columns: 1.2fr 1.6fr .9fr .9fr; }
-      .muted-sm { color: var(--muted); font-size: 12px; }
-      .textarea { width:100%; min-height: 120px; }
-      .inline { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-      .row-toggle { cursor: pointer; }
-      @media (max-width: 360px) { .list-item { grid-template-columns: 1fr; } }
-      .fab-top { position: fixed; bottom: 40px; right: 16px; display: none; border-radius: 999px; }
+        body { padding: 20px; }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .back-btn {
+            padding: 10px 20px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .input-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: #2a2b31;
+            border: none;
+            color: #fff;
+            margin-bottom: 14px;
+        }
+
+        .primary-btn {
+            width: 100%;
+            padding: 14px;
+            background: #3d7bff;
+            border-radius: 14px;
+            color: #fff;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            color: #bbb;
+            margin: 16px 0 8px 0;
+            font-size: 15px;
+        }
+
+        .item-card {
+            background: #2a2b31;
+            color: #fff;
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+        }
+
+        .item-head {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .item-sub {
+            margin-top: 4px;
+            color: #bbb;
+            font-size: 14px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .select-box {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            background: #33353d;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-update {
+            padding: 12px 18px;
+            background: #3d7bff;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .btn-delete {
+            padding: 12px 18px;
+            background: #d9534f;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
     </style>
-  </head>
-  <body>
-    <div class="section">
-      <div class="card">
-        <div class="row" style="flex-wrap:wrap;">
-          <div class="app-title">構件管理</div>
-          <a class="btn" href="index.html">返回主畫面</a>
-        </div>
+</head>
 
-        <div class="tools" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
-          <input id="mq" class="btn" placeholder="搜尋：編號/規格/材質/位置/重量/數量" style="flex:1 1 100%; min-width:240px;" />
-        </div>
+<body>
 
-        <div style="margin-top:12px;">
-          <div class="muted">單筆新增構件</div>
-          <div class="form" style="margin-top:8px;">
-            <label>構件編號<input id="sid" class="btn" placeholder="例如 A-001" /></label>
-            <label>構件位置<input id="sposition" class="btn" placeholder="例如 0/A" /></label>
-            <label>構件重量<input id="sweight" class="btn" placeholder="數值，可含千分位" /></label>
-            <label>構件數量<input id="squantity" class="btn" placeholder="例如 10" /></label>
-            <label>構件規格<input id="sspec" class="btn" placeholder="例如 PL-25*500*650" /></label>
-            <button id="singleAdd" class="btn primary">新增一筆</button>
-          </div>
-          <div class="muted-sm" style="margin-top:8px;">新增後，會合併到構件庫（以構件編號為唯一鍵）。</div>
-        </div>
-
-        <div class="row" style="margin-top:16px;">
-          <div class="muted">構件狀態管理</div>
-        </div>
-        <div id="manageList" class="list" style="margin-top:8px;"></div>
-      </div>
+    <!-- Header -->
+    <div class="header-row">
+        <div class="header-title">構件管理</div>
+        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
     </div>
-    <button class="btn fab-top" id="toTopManage">↑</button>
 
-    <script src="back.js?v=V6.1"></script>
+    <!-- Search -->
+    <input id="search" class="input-box" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="renderList()">
+
+    <!-- 新增構件 -->
+    <div class="section-title">單筆新增構件</div>
+
+    <input id="newId" class="input-box" placeholder="構件編號，例如 A-001">
+    <input id="newPos" class="input-box" placeholder="構件位置，例如 0/A">
+    <input id="newWeight" class="input-box" placeholder="構件重量（可含千分位）">
+    <input id="newQty" class="input-box" placeholder="構件數量，例如 10">
+    <input id="newSpec" class="input-box" placeholder="構件規格，例如 PL-25*500*650">
+
+    <div class="primary-btn" onclick="addItem()">新增一筆</div>
+
+    <div class="section-title">構件狀態管理（點選展開）</div>
+
+    <div id="itemList"></div>
+
     <script>
-      const get=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
-      const set=(k,v)=>localStorage.setItem(k, JSON.stringify(v));
-      const fmt2=(v)=>{
-        const n=Number(String(v||'').replace(/,/g,''));
-        return Number.isFinite(n)? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(v||'');
-      };
-      const num=(v)=>{ const t=String(v||'').replace(/,/g,'').trim(); const n=Number(t); return Number.isFinite(n)? Math.round(n*100)/100 : ''; };
-      const today=()=>get('todayRecords', []);
-      const planned=()=>get('plannedItems', []);
-      const libs=()=>get('componentsLibrary', []);
+        let items = [];
 
-      function saveMerged(items){
-        const prev=libs(); const map=new Map(prev.map(x=>[String(x.id), x]));
-        items.forEach(x=>{
-          if(!x.id) return;
-          const key=String(x.id);
-          const existing=map.get(key) || {};
-          const base={
-            id:key,
-            spec: existing.spec || '',
-            material: existing.material || '',
-            weight: existing.weight!==undefined? existing.weight : '',
-            area: existing.area!==undefined? existing.area : '',
-            position: existing.position || '',
-            quantity: existing.quantity!==undefined? existing.quantity : ''
-          };
-          if(x.spec!==undefined && String(x.spec).trim()!=='') base.spec=String(x.spec);
-          if(x.position!==undefined && String(x.position).trim()!=='') base.position=String(x.position);
-          if(x.weight!==undefined && x.weight!=='') base.weight=num(x.weight);
-          if(x.material!==undefined && String(x.material).trim()!=='') base.material=String(x.material);
-          if(x.area!==undefined && x.area!=='') base.area=num(x.area);
-          if(x.quantity!==undefined && x.quantity!=='') base.quantity=num(x.quantity);
-          map.set(key, base);
-        });
-        set('componentsLibrary', Array.from(map.values()));
-      }
+        function addItem() {
+            const id = newId.value.trim();
+            const pos = newPos.value.trim();
+            const w = newWeight.value.trim();
+            const q = newQty.value.trim();
+            const s = newSpec.value.trim();
 
+            if (!id || !q) {
+                alert("至少需要填寫【構件編號】與【數量】");
+                return;
+            }
 
+            items.push({
+                id,
+                pos,
+                weight: w,
+                qty: q,
+                spec: s,
+                status: "未進料"
+            });
 
-      function applyStatus(id, position, status, plannedAt){
-        // 清理舊紀錄（依構件編號+位置）
-        let t=today(); let p=planned();
-        const pos = String(position||'');
-        if(status!=="used"){
-          t=t.filter(x=> !(String(x.id)===String(id) && String(x.position||'')===String(pos)) );
-          p=p.filter(x=> !(String(x.id)===String(id) && String(x.position||'')===String(pos)) );
+            newId.value = "";
+            newPos.value = "";
+            newWeight.value = "";
+            newQty.value = "";
+            newSpec.value = "";
+
+            renderList();
         }
-        if(status==='scheduled'){
-          if(!plannedAt){ alert('請填入預計到貨日期 (YYYY-MM-DD)'); return false; }
-          p.push({ id:String(id), plannedAt:String(plannedAt), status:'scheduled', position: pos });
-        } else if(status==='pending'){
-          t.push({ id:String(id), position: pos, plannedAt: plannedAt || '', actualAt:'', status:'pending' });
-        } else if(status==='received'){
-          const now=new Date();
-          const ts= now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-          t.push({ id:String(id), position: pos, plannedAt: plannedAt || '', actualAt: ts, status:'received' });
-        } else if(status==='used'){
-          let used=get('usedRecords', [])||[];
-          used=used.filter(u=> !(String(u?.id)===String(id) && String(u?.position||'')===String(pos)) );
-          const libItem = libs().find(r=> String(r.id)===String(id) && String(r.position||'')===String(pos) ) || {};
-          const qty=Number(libItem?.quantity)||1;
-          const dateOnly=(plannedAt && plannedAt.length)? plannedAt : new Date().toISOString().slice(0,10);
-          const ts=new Date().toLocaleString();
-          used.push({ id:String(id), position: pos, qty:qty, usedQty:qty, usedAt:ts, usedAtDate:dateOnly });
-          set('usedRecords', used);
-        } else {
-          // 未設定：僅移除任何既有狀態
+
+        function renderList() {
+            const list = document.getElementById("itemList");
+            list.innerHTML = "";
+
+            const keyword = search.value.trim().toLowerCase();
+
+            items
+                .filter(a => JSON.stringify(a).toLowerCase().includes(keyword))
+                .forEach((item, index) => {
+                const card = document.createElement("div");
+                card.className = "item-card";
+
+                card.innerHTML = `
+                    <div class="item-head">${item.id}</div>
+                    <div class="item-sub">${item.spec || "-"}　|　位置：${item.pos || "-"}　|　重量：${item.weight || "-"}　|　數量：${item.qty}</div>
+
+                    <div class="row">
+                        <select class="select-box" onchange="updateStatus(${index}, this.value)">
+                            <option ${item.status === "未進料" ? "selected" : ""}>未進料</option>
+                            <option ${item.status === "預定中" ? "selected" : ""}>預定中</option>
+                            <option ${item.status === "已進料" ? "selected" : ""}>已進料</option>
+                            <option ${item.status === "已使用" ? "selected" : ""}>已使用</option>
+                        </select>
+
+                        <div class="btn-update" onclick="saveItem(${index})">更新</div>
+                        <div class="btn-delete" onclick="deleteItem(${index})">刪除</div>
+                    </div>
+                `;
+
+                list.appendChild(card);
+            });
         }
-        set('todayRecords', t); set('plannedItems', p);
-        return true;
-      }
 
-      function currentStatusMap(){
-        const map=new Map();
-        planned().forEach(r=>{ 
-          const key = `${String(r.id)}|${String(r.position||'')}`;
-          map.set(key, { status:r.status||'scheduled', plannedAt:r.plannedAt||'', position: r.position||'' }); 
-        });
-        today().forEach(r=>{ 
-          const key = `${String(r.id)}|${String(r.position||'')}`;
-          map.set(key, { status:r.status, plannedAt:r.plannedAt||'', position: r.position||'' }); 
-        });
-        const usedRecs=(get('usedRecords', [])||[]);
-        usedRecs.forEach(u=>{
-          const key = `${String(u.id)}|${String(u.position||'')}`;
-          map.set(key, { status:'used', plannedAt:String(u.usedAtDate||''), position: String(u.position||'') });
-        });
-        return map;
-      }
+        function updateStatus(i, status) {
+            items[i].status = status;
+        }
 
-      function renderManage(){
-        const list=document.getElementById('manageList'); list.innerHTML='';
-        const q=(document.getElementById('mq')?.value||'').trim().toUpperCase();
-        const all=libs().filter(x=>{
-          if(!q) return true;
-          const fields=[x.id,x.spec,x.material,x.position,x.weight,x.quantity].map(v=>String(v||'').toUpperCase());
-          return fields.some(f=>f.includes(q));
-        }).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-        const stat=currentStatusMap();
-        if(all.length===0){ list.innerHTML='<div class="muted">構件庫目前為空，請先新增構件</div>'; return; }
-        all.forEach(item=>{
-          const row=document.createElement('div'); row.className='list-item row-toggle';
-          row.innerHTML=`
-            <div>${item.id}</div>
-            <div class="muted">${item.spec||'-'}</div>
-            <div class="muted">${fmt2(item.quantity)||'-'}</div>
-            <div class="muted">${item.position||'-'}</div>
-          `;
-          const details=document.createElement('div'); details.className='details';
-          details.innerHTML=`
-            <div class="inline">
-              <select class="btn statusSel" style="min-width:140px">
-                <option value="">未設定</option>
-                <option value="pending">未進料</option>
-                <option value="scheduled">預定中</option>
-                <option value="received">已進料</option>
-                <option value="used">已使用</option>
-              </select>
-              <input class="btn dateInput" type="date" placeholder="YYYY-MM-DD" style="min-width:160px" />
-              <button class="btn primary applyBtn">更新</button>
-              <button class="btn danger delBtn">刪除此構件</button>
-            </div>
-            <div class="muted-sm">點選列可展開設定；更新後即時影響進料紀錄與構件庫狀態。</div>
-          `;
-          const wrap=document.createElement('div'); wrap.appendChild(row); wrap.appendChild(details);
-          const sel=details.querySelector('.statusSel');
-          const date=details.querySelector('.dateInput');
-          const btn=details.querySelector('.applyBtn');
-          const del=details.querySelector('.delBtn');
-          const key = `${String(item.id)}|${String(item.position||'')}`;
-          const cur=stat.get(key);
-          if(cur){ sel.value=cur.status||''; date.value=cur.plannedAt||''; }
-          btn.addEventListener('click',()=>{
-            const ok=applyStatus(item.id, item.position||'', sel.value, (date.value||'').trim());
-            if(ok){ details.classList.remove('open'); renderManage(); }
-          });
-          del.addEventListener('click',()=>{
-            if(!confirm('確定要刪除此構件？')) return;
-            if(!confirm('再次確認：刪除後不可復原，是否繼續？')) return;
-            deleteComponent(item.id, item.position||'');
-            details.classList.remove('open');
-            renderManage();
-          });
-          row.addEventListener('click',()=>{ details.classList.toggle('open'); });
-          list.appendChild(wrap);
-        });
-      }
+        function saveItem(i) {
+            alert("已更新構件狀態。");
+        }
 
-      function deleteComponent(id, position){
-        const match=(x)=> String(x.id)===String(id) && String(x.position||'')===String(position||'');
-        const libNext = libs().filter(x=> !match(x));
-        const planNext = planned().filter(x=> !match(x));
-        const todayNext = today().filter(x=> !match(x));
-        const usedNext = (get('usedRecords', [])||[]).filter(x=> !match(x));
-        set('componentsLibrary', libNext);
-        set('plannedItems', planNext);
-        set('todayRecords', todayNext);
-        set('usedRecords', usedNext);
-        return true;
-      }
+        function deleteItem(i) {
+            if (!confirm("確定刪除此構件？")) return;
+            items.splice(i, 1);
+            renderList();
+        }
 
-      // 事件與初始化
-      document.getElementById('singleAdd').addEventListener('click',()=>{
-        const id=document.getElementById('sid').value.trim(); if(!id){ alert('請填寫構件編號'); return; }
-        const position=document.getElementById('sposition').value.trim();
-        const weight=num(document.getElementById('sweight').value.trim());
-        const quantity=num(document.getElementById('squantity').value.trim());
-        const spec=document.getElementById('sspec').value.trim();
-        saveMerged([{ id, position, weight, spec, quantity }]);
-        document.getElementById('sid').value=''; document.getElementById('sposition').value=''; document.getElementById('sweight').value=''; document.getElementById('squantity').value=''; document.getElementById('sspec').value='';
-        renderManage();
-      });
-
-      (function setupSearch(){
-        const input=document.getElementById('mq');
-        if(input) input.addEventListener('input', ()=>{ input.value = input.value.toUpperCase(); renderManage(); });
-        const sid=document.getElementById('sid'); const spos=document.getElementById('sposition');
-        if(sid) sid.addEventListener('blur', ()=>{ sid.value = sid.value.toUpperCase(); });
-        if(spos) spos.addEventListener('blur', ()=>{ spos.value = spos.value.toUpperCase(); });
-      })();
-
-      renderManage();
-      (function(){ const b=document.getElementById('toTopManage'); if(!b) return; b.addEventListener('click',()=>{ window.scrollTo({ top:0, behavior:'smooth' }); }); const onScroll=()=>{ b.style.display = window.scrollY>200 ? 'inline-flex' : 'none'; }; window.addEventListener('scroll', onScroll); onScroll(); })();
+        renderList();
     </script>
-  </body>
+
+</body>
 </html>
