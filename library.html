@@ -1,215 +1,262 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>構件庫</title>
-<link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>構件庫</title>
 
-<style>
-/* 額外補強 mobile 顯示與顏色點 */
-.status-row {
-    display: flex;
-    gap: 26px;
-    margin: 12px 0 18px 0;
-    padding-left: 8px;
-}
+    <!-- 你的 styles.css -->
+    <link rel="stylesheet" href="styles.css" />
 
-.status-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-right: 6px;
-}
+    <!-- Excel 處理套件：SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
-.s-gray  { background:#7d7d7d; }
-.s-yellow{ background:#f1c40f; }
-.s-orange{ background:#e67e22; }
-.s-green { background:#2ecc71; }
-
-/* 卡片列出每個構件 */
-.item-card {
-    background:#1c2433;
-    padding:14px;
-    border-radius:16px;
-    margin-bottom:12px;
-}
-.item-title {
-    font-size:16px;
-    font-weight:700;
-    color:#fff;
-}
-.item-sub {
-    color:#bbb;
-    font-size:14px;
-    margin-top:6px;
-}
-</style>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 
 <body>
 
-<!-- top bar -->
 <div class="top-bar">
     <div class="top-bar-title">構件庫</div>
+
     <div class="top-bar-actions">
-        <a href="index.html" class="top-btn">返回主畫面</a>
+        <button class="top-btn" onclick="window.location.href='index.html'">返回主畫面</button>
     </div>
 </div>
 
-<!-- 主卡片 -->
 <div class="screen-card">
 
-    <!-- 標題：構件狀態 -->
+    <!-- 狀態篩選 -->
     <div class="section-title">構件狀態</div>
 
-    <div class="status-row">
-        <div class="row">
-            <div class="status-dot s-gray"></div><span class="muted">未進料</span>
-        </div>
-
-        <div class="row">
-            <div class="status-dot s-yellow"></div><span class="muted">預定中</span>
-        </div>
-
-        <div class="row">
-            <div class="status-dot s-orange"></div><span class="muted">已進料</span>
-        </div>
-
-        <div class="row">
-            <div class="status-dot s-green"></div><span class="muted">已使用</span>
-        </div>
+    <div class="row" style="margin-bottom: 16px;">
+        <span style="color:#9aa0a6"><input type="radio" name="s" onclick="filterStatus('all')" checked> 全部</span>
+        <span style="color:#9aa0a6"><input type="radio" name="s" onclick="filterStatus('unreceived')"> 未進料</span>
+        <span style="color:#9aa0a6"><input type="radio" name="s" onclick="filterStatus('planned')"> 預定中</span>
+        <span style="color:#9aa0a6"><input type="radio" name="s" onclick="filterStatus('received')"> 已進料</span>
+        <span style="color:#9aa0a6"><input type="radio" name="s" onclick="filterStatus('used')"> 已使用</span>
     </div>
 
-    <!-- 搜尋列 -->
-    <span class="field-label">搜尋構件</span>
-    <input id="searchInput" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量">
+    <!-- 搜尋 -->
+    <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="applyFilters()">
 
-    <!-- 匯入 -->
-    <button class="primary-btn" onclick="openFile()">匯入 Excel / CSV</button>
+    <!-- 匯入按鈕 -->
+    <button class="primary-btn full" onclick="document.getElementById('fileInput').click()">匯入 Excel / CSV</button>
+    <input id="fileInput" type="file" accept=".xlsx,.csv" style="display:none" onchange="handleFile(event)">
 
-    <!-- 被安全移出的 file input（不會遮住按鈕） -->
-    <input id="fileInput" type="file" accept=".csv, .xlsx" 
-           onchange="handleFile(event)"
-           style="position:fixed; left:-9999px;">
-
-    <!-- 下載 CSV 模板 -->
+    <!-- 下載模板 -->
     <button class="ghost-btn full" onclick="downloadTemplate()">下載 CSV 模板</button>
 
     <!-- 排序 -->
-    <span class="field-label">排序方式</span>
-    <select id="sortSelect" class="input-bar" onchange="renderList()">
-        <option value="id_asc">構件名稱 ↑</option>
-        <option value="id_desc">構件名稱 ↓</option>
-        <option value="pos_asc">位置 ↑</option>
-        <option value="pos_desc">位置 ↓</option>
+    <div class="field-label">排序方式</div>
+    <select id="sortMode" class="input-bar" onchange="applyFilters()">
+        <option value="id_asc">構件編號 ↑</option>
+        <option value="id_desc">構件編號 ↓</option>
+        <option value="status">狀態排序</option>
     </select>
-
-    <!-- 顯示結果 -->
-    <div id="listArea" style="margin-top:20px;"></div>
 
 </div>
 
-<script src="back.js"></script>
-<script>
-// -----------------------------
-// 匯入 CSV / Excel
-// -----------------------------
-function openFile() {
-    document.getElementById("fileInput").click();
-}
+<!-- 資料列表 -->
+<div id="listContainer" style="margin: 16px;"></div>
 
+<script>
+/* -----------------------------------------------------
+   Supabase 初始化
+----------------------------------------------------- */
+const supabaseUrl = "https://udilhhmpdmnrkfgkowqo.supabase.co";
+const supabaseKey = "YOUR-ANON-KEY";
+const supabase = supabasejs.createClient(supabaseUrl, supabaseKey);
+
+let allItems = [];
+let currentFilter = "all";
+
+/* -----------------------------------------------------
+   匯入 Excel / CSV
+----------------------------------------------------- */
 function handleFile(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    alert("檔案讀取中…（若為 Excel 需後端處理）");
+    const reader = new FileReader();
 
-    // 你可在 back.js 實作 parse 與上傳 supabase 的流程
+    reader.onload = async function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        if (rows.length === 0) return alert("檔案為空");
+
+        // 必要欄位
+        const required = ["鐵件編號","規格","材質","位置","重量","數量"];
+        for (let c of required) {
+            if (!rows[0].hasOwnProperty(c)) {
+                alert(`缺少必要欄位：${c}\n請下載模板確認格式`);
+                return;
+            }
+        }
+
+        // 自動分類邏輯
+        const uploadData = rows.map(r => ({
+            item_id: r["鐵件編號"],
+            spec: r["規格"],
+            material: r["材質"],
+            position: r["位置"],
+            weight: Number(r["重量"]),
+            qty: Number(r["數量"]),
+            status: detectStatus(r)
+        }));
+
+        // 上傳至 Supabase
+        const { error } = await supabase
+            .from("components_library")
+            .insert(uploadData);
+
+        if (error) return alert("上傳失敗：" + error.message);
+
+        alert("匯入成功！");
+        loadData();
+    };
+
+    reader.readAsArrayBuffer(file);
 }
 
+/* -----------------------------------------------------
+   狀態自動判斷
+----------------------------------------------------- */
+function detectStatus(row) {
+    const hasPlanned = row["預定日期"]?.trim() !== "";
+    const hasReceived = row["進料日期"]?.trim() !== "";
+    const usedQty = Number(row["已使用數量"] || 0);
 
-// -----------------------------
-// 模板 CSV
-// -----------------------------
+    if (usedQty > 0) return "used";
+    if (hasReceived) return "received";
+    if (hasPlanned) return "planned";
+    return "unreceived";
+}
+
+/* -----------------------------------------------------
+   下載模板
+----------------------------------------------------- */
 function downloadTemplate() {
     const csv =
-`鐵件編號,規格,材質,位置,重量,數量
-sample-001,H300*200,SS400,A1,123.4,8`;
+"鐵件編號,規格,材質,位置,重量,數量\n" +
+"SAMPLE-01,H100x50x5x7,SS400,A1-01,12.5,4\n";
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "構件庫模板.csv";
-    a.click();
-
-    URL.revokeObjectURL(url);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "構件庫模板.csv";
+    link.click();
 }
 
-
-// -----------------------------
-// 抓資料 & 顯示
-// -----------------------------
-let ITEMS = [];
-
+/* -----------------------------------------------------
+   讀取 Supabase 資料
+----------------------------------------------------- */
 async function loadData() {
     const { data, error } = await supabase
         .from("components_library")
-        .select("*");
+        .select("*")
+        .order("item_id");
 
     if (error) {
-        alert("讀取失敗: " + error.message);
+        alert("資料讀取失敗：" + error.message);
         return;
     }
 
-    ITEMS = data || [];
-    renderList();
+    allItems = data || [];
+    applyFilters();
 }
 
-// 狀態顏色
-function getStatusColor(status) {
-    if (status === "used") return "s-green";
-    if (status === "received") return "s-orange";
-    if (status === "planned") return "s-yellow";
-    return "s-gray";
+/* -----------------------------------------------------
+   狀態篩選
+----------------------------------------------------- */
+function filterStatus(s) {
+    currentFilter = s;
+    applyFilters();
 }
 
-// 排序
-function renderList() {
-    const key = document.getElementById("sortSelect").value;
-    let list = [...ITEMS];
+/* -----------------------------------------------------
+   套用搜尋 + 排序 + 狀態過濾
+----------------------------------------------------- */
+function applyFilters() {
+    let list = [...allItems];
 
-    if (key === "id_asc") list.sort((a,b)=>a.item_id.localeCompare(b.item_id));
-    if (key === "id_desc") list.sort((a,b)=>b.item_id.localeCompare(a.item_id));
-    if (key === "pos_asc") list.sort((a,b)=> (a.position||"").localeCompare(b.position||""));
-    if (key === "pos_desc") list.sort((a,b)=> (b.position||"").localeCompare(a.position||""));
+    // 狀態
+    if (currentFilter !== "all") {
+        list = list.filter(x => x.status === currentFilter);
+    }
 
-    const area = document.getElementById("listArea");
-    area.innerHTML = "";
+    // 搜尋
+    const q = document.getElementById("searchBox").value.trim().toLowerCase();
+    if (q !== "") {
+        list = list.filter(x =>
+            JSON.stringify(x).toLowerCase().includes(q)
+        );
+    }
 
-    list.forEach(item=>{
+    // 排序
+    const sortMode = document.getElementById("sortMode").value;
+    if (sortMode === "id_asc") list.sort((a,b)=>a.item_id.localeCompare(b.item_id));
+    if (sortMode === "id_desc") list.sort((a,b)=>b.item_id.localeCompare(a.item_id));
+    if (sortMode === "status") list.sort((a,b)=>a.status.localeCompare(b.status));
+
+    // 繪製 UI
+    renderList(list);
+}
+
+/* -----------------------------------------------------
+   顯示列表
+----------------------------------------------------- */
+function renderList(list) {
+    const container = document.getElementById("listContainer");
+    container.innerHTML = "";
+
+    list.forEach(item => {
+        const color = getStatusColor(item.status);
+
         const div = document.createElement("div");
-        div.className = "item-card";
+        div.className = "card";
+        div.style.borderLeft = `6px solid ${color}`;
+        div.style.marginBottom = "12px";
 
         div.innerHTML = `
-            <div class="row">
-                <div class="status-dot ${getStatusColor(item.status)}"></div>
-                <div class="item-title">${item.item_id}</div>
-            </div>
-            <div class="item-sub">${item.position || "無位置"}</div>
-            <div class="item-sub">${item.spec || "-"}</div>
-            <div class="item-sub">重量：${item.weight || "-"}　數量：${item.qty || "-"}</div>
+            <div class="app-title">${item.item_id}</div>
+            <div class="muted-sm">${item.position}</div>
+            <div class="muted-sm">${item.spec}</div>
+            <div class="muted-sm">重量：${item.weight} | 數量：${item.qty}</div>
+            <div class="muted-sm">狀態：<span style="color:${color}">${translateStatus(item.status)}</span></div>
         `;
 
-        area.appendChild(div);
+        container.appendChild(div);
     });
 }
 
-// 初始化
-loadData();
+function getStatusColor(s) {
+    return {
+        unreceived: "#888",
+        planned: "#f1c40f",
+        received: "#e67e22",
+        used: "#2ecc71"
+    }[s] || "#999";
+}
 
+function translateStatus(s) {
+    return {
+        unreceived: "未進料",
+        planned: "預定中",
+        received: "已進料",
+        used: "已使用"
+    }[s];
+}
+
+// 載入資料
+loadData();
 </script>
+
 </body>
 </html>
