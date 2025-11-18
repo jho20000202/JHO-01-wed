@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>進料確認</title>
+    <link rel="stylesheet" href="styles.css?v=V6.1" />
+    <style>
+      #confirmList .list-item { grid-template-columns: 1.2fr .9fr auto; align-items:center; gap:8px; }
+      #confirmList .list-item > div { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      #confirmList .details { display:none; padding-top:6px; }
+      #confirmList .details.open { display:block; }
+      #confirmList .ops { display:flex; justify-content:flex-end; }
+      #confirmList .ops .btn { padding:8px 10px; font-size:14px; }
+      @media (max-width: 480px) {
+        #confirmList .list-item { grid-template-columns: 1fr .8fr auto !important; }
+        #confirmList .ops { justify-content:flex-start; }
+      }
+      .fab-top { position: fixed; bottom: 40px; right: 16px; display: none; border-radius: 999px; }
+    </style>
+  </head>
+  <body>
+    <div class="section">
+      <div class="card">
+        <div class="row" style="flex-wrap:wrap;">
+          <div class="app-title">進料確認</div>
+          <a class="btn" href="index.html">返回主畫面</a>
+          <select id="sortConfirm" class="btn" style="min-width:160px">
+            <option value="id_asc">排列：編號↑</option>
+            <option value="id_desc">排列：編號↓</option>
+            <option value="used_last" selected>排列：已使用最後</option>
+          </select>
+        </div>
+
+        <div class="tools" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
+          <input id="cq" class="btn" placeholder="搜尋：編號/位置/規格/材質/重量/數量" style="flex:1 1 100%; min-width:240px;" />
+        </div>
+        <div id="confirmList" class="list" style="margin-top:8px;"></div>
+        <div class="row" style="margin-top:16px; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button id="exportToday" class="btn primary">輸出今日進料 Excel</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn fab-top" id="toTopConfirm">↑</button>
+
+    <script src="back.js?v=V6.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+      function get(k,f){ try { return JSON.parse(localStorage.getItem(k)) ?? f } catch { return f } }
+      function set(k,v){ localStorage.setItem(k, JSON.stringify(v)) }
+      const today=()=>get('todayRecords', []);
+      const libs=()=>get('componentsLibrary', []);
+      const fmt2=(v)=>{
+        const n=Number(String(v||'').replace(/,/g,''));
+        return Number.isFinite(n)? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(v||'');
+      };
+
+      const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+      const sumUsedByKey=(id, position)=> (get('usedRecords', []) || []).reduce((s,u)=> {
+        const match = String(u?.id)===String(id) && String(u?.position||'')===String(position||'');
+        return s + (match ? Number(u?.qty ?? u?.quantity ?? u?.usedQty ?? 0) : 0);
+      }, 0);
+
+      function currentStatusMap(){
+        const map=new Map();
+        today().forEach(r=>{
+          const key = `${String(r.id)}|${String(r.position||'')}`;
+          map.set(key, { status:r.status, plannedAt:r.plannedAt||'', actualAt:r.actualAt||'', position: r.position||'' });
+        });
+        return map;
+      }
+
+      function render(){
+        const list=document.getElementById('confirmList'); list.innerHTML='';
+        const stat=currentStatusMap();
+        const all=libs().slice();
+        const sortSel = (document.getElementById('sortConfirm')?.value || 'id_asc');
+        const qVal=(document.getElementById('cq')?.value||'').trim().toUpperCase();
+        const rows=all.filter(i=>{
+          const key = `${String(i.id)}|${String(i.position||'')}`;
+          const s=stat.get(key); return s && s.status==='received';
+        }).filter(i=>{
+          if(!qVal) return true;
+          const fields=[i.id,i.position,i.spec,i.material,i.weight,i.quantity].map(v=>String(v||'').toUpperCase());
+          return fields.some(f=> f.includes(qVal));
+        });
+        // 排序：已使用最後 或 編號順序
+        const cmpIdAsc = (a,b)=> String(a.id).localeCompare(String(b.id));
+        const cmpIdDesc = (a,b)=> String(b.id).localeCompare(String(a.id));
+        const cmpUsedLast = (a,b)=>{
+          const ua = sumUsedByKey(a.id, a.position||'');
+          const ub = sumUsedByKey(b.id, b.position||'');
+          const aUsed = Number(ua) > 0 ? 1 : 0;
+          const bUsed = Number(ub) > 0 ? 1 : 0;
+          if (aUsed !== bUsed) return aUsed - bUsed; // 未使用(0)先、已使用(1)後
+          return String(a.id).localeCompare(String(b.id));
+        };
+        if (sortSel === 'id_desc') rows.sort(cmpIdDesc);
+        else if (sortSel === 'used_last') rows.sort(cmpUsedLast);
+        else rows.sort(cmpIdAsc);
+        if(rows.length===0){ list.innerHTML='<div class="muted">今日無進料紀錄</div>'; return; }
+        rows.forEach(item=>{
+          const key = `${String(item.id)}|${String(item.position||'')}`;
+          const s=stat.get(key);
+          const row=document.createElement('div'); row.className='list-item row-toggle';
+          const total = Number(item.quantity || 0);
+          const usedQty = sumUsedByKey(item.id, item.position);
+          row.innerHTML=`
+            <div>${item.id}</div>
+            <div class="muted">${item.position||'-'}</div>
+            <div class="ops"></div>
+          `;
+          const details=document.createElement('div'); details.className='details';
+          details.innerHTML=`
+            <div class="muted">重量：${fmt2(item.weight)||'-'}</div>
+            <div class="muted">預計日期：${s.plannedAt||'-'}</div>
+            <div class="muted">實際時間：${s.actualAt||'-'}</div>
+          `;
+          const opsEl = row.querySelector('.ops');
+          const remain = round2(total - usedQty);
+          if (remain <= 0) {
+            opsEl.innerHTML = '<button class="btn" disabled>已全數使用</button>';
+          } else {
+            opsEl.innerHTML = '<button class="btn primary mobileUseBtn" title="標記全數使用">確認使用</button>';
+            const btn = opsEl.querySelector('.mobileUseBtn');
+            btn.addEventListener('click', () => {
+              const now = new Date();
+              const recs = get('usedRecords', []);
+              recs.push({ id: item.id, position: item.position||'', qty: remain, usedAtDate: now.toISOString().slice(0,10), usedAt: now.toLocaleString() });
+              set('usedRecords', recs);
+              // 更新按鈕狀態
+              const afterUsed = round2(total - sumUsedByKey(item.id, item.position));
+              if (afterUsed <= 0) {
+                opsEl.innerHTML = '<button class="btn" disabled>已全數使用</button>';
+              }
+            });
+          }
+          const wrap=document.createElement('div'); wrap.appendChild(row); wrap.appendChild(details);
+          row.addEventListener('click',()=>{ details.classList.toggle('open'); });
+          list.appendChild(wrap);
+        });
+        const cq=document.getElementById('cq'); if(cq){ cq.addEventListener('input', ()=>{ cq.value=cq.value.toUpperCase(); render(); }); }
+      }
+
+      async function exportExcel(){
+        const stat=currentStatusMap();
+        const all=libs().slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+        const rows=all.filter(i=>{
+          const key = `${String(i.id)}|${String(i.position||'')}`;
+          const s=stat.get(key); return s && s.status==='received';
+        }).map(i=>{
+          const key = `${String(i.id)}|${String(i.position||'')}`;
+          const s=stat.get(key);
+          return {
+            '構件編號': i.id,
+            '構件位置': i.position||'',
+            '構件重量': i.weight||'',
+            '預計日期': s.plannedAt||'',
+            '實際時間': s.actualAt||''
+          };
+        });
+        const ws=XLSX.utils.json_to_sheet(rows);
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '今日進料');
+        const data = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+        const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const saved = await (window.saveBlobWithPicker ? window.saveBlobWithPicker(blob, '今日進料.xlsx') : false);
+        if (!saved) alert('裝置不支援原生儲存');
+      }
+
+      (function addPreview(){
+        const row = document.querySelector('.row[style*="margin-top:16px"]');
+        if(row){
+          const btn = document.createElement('button'); btn.className='btn'; btn.textContent='預覽 Excel';
+          btn.addEventListener('click', async ()=>{
+            try {
+              const stat=currentStatusMap();
+              const all=libs().slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+              const rows=all.filter(i=>{ const key = `${String(i.id)}|${String(i.position||'')}`; const s=stat.get(key); return s && s.status==='received'; }).map(i=>{ const key = `${String(i.id)}|${String(i.position||'')}`; const s=stat.get(key); return ['構件編號', i.id, '構件位置', i.position||'', '構件重量', i.weight||'', '預計日期', s.plannedAt||'', '實際時間', s.actualAt||'']; });
+              const ws=XLSX.utils.aoa_to_sheet([['今日進料'], ...rows]); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '今日進料'); const data = XLSX.write(wb, { bookType:'xlsx', type:'array' }); const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+              if (window.showExcelPreview) window.showExcelPreview(blob, '今日進料.xlsx');
+            } catch (e) { alert('預覽失敗：'+(e?.message||e)); }
+          });
+          row.insertBefore(btn, row.querySelector('#exportToday'));
+        }
+      })();
+
+      document.getElementById('exportToday').addEventListener('click', exportExcel);
+      // 排序切換即時刷新
+      (function(){ const sel=document.getElementById('sortConfirm'); if(sel){ sel.addEventListener('change', render); } })();
+      // 新增清除今日進料資料按鈕
+      (function(){
+        const row = document.querySelector('.row[style*="margin-top:16px"]');
+        if(row){
+          const btn = document.createElement('button'); btn.id='clearToday'; btn.className='btn'; btn.textContent='清除今日進料';
+          row.appendChild(btn);
+          btn.addEventListener('click', ()=>{
+            if(!confirm('確定要清除今日進料資料？')) return;
+            localStorage.removeItem('todayRecords');
+            render();
+          });
+        }
+      })();
+      render();
+      (function(){ const b=document.getElementById('toTopConfirm'); if(!b) return; b.addEventListener('click',()=>{ window.scrollTo({ top:0, behavior:'smooth' }); }); const onScroll=()=>{ b.style.display = window.scrollY>200 ? 'inline-flex' : 'none'; }; window.addEventListener('scroll', onScroll); onScroll(); })();
+    </script>
+  </body>
+</html>

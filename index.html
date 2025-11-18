@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>鋼構進出料記錄系統</title>
+    <link rel="stylesheet" href="styles.css?v=V6.1" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- 純 Web 版不依賴 GIS/原生 OAuth；如需 Drive，後續可改為後端 API -->
+    <script>
+      window.addEventListener('error', function(e){
+        var app=document.getElementById('app');
+        if(!app) return;
+        app.innerHTML = '<div class="section"><div class="card"><div class="app-title">載入失敗</div><div class="muted">發生非預期錯誤，請點按下方重新載入。</div><div style="margin-top:8px"><button class="btn" onclick="location.reload()">重新整理</button></div></div></div>';
+        try{ console.error('Runtime error', e.error || e.message || e); }catch{}
+      });
+    </script>
+    <script src="back.js?v=V6.1"></script>
+    <script type="module" src="app.js?v=V6.1"></script>
+    <pre id="debugArea" style="background:#111;color:#0f0;padding:10px;white-space:pre-wrap;font-size:12px;border:1px solid #333;"></pre>
+  </body>
+</html>

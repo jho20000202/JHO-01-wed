@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>構件庫</title>
+    <link rel="stylesheet" href="styles.css?v=V6.1" />
+    <style>
+      .tools { display:flex; gap:8px; margin-top:12px; flex-wrap: wrap; }
+      .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+      .details { display:none; margin-top: 6px; color: #cfd3da; font-size: 12px; }
+      .details.open { display:block; }
+      .details .kv { display:inline-block; margin-right:10px; }
+      .list-item { grid-template-columns: 1.2fr 2fr; }
+      .row-toggle { cursor: pointer; }
+      .row-toggle > div:first-child { color: var(--accent); }
+      .spec-cell { display:flex; align-items:center; justify-content: space-between; gap:8px; }
+      .hint-dots { display:inline-flex; align-items:center; gap:6px; }
+      .fab-top { position: fixed; bottom: 40px; right: 16px; display: none; border-radius: 999px; }
+    </style>
+  </head>
+  <body>
+    <div class="section">
+      <div class="card">
+        <div class="row" style="flex-wrap:wrap;">
+          <div class="app-title">構件庫</div>
+          <a class="btn" href="index.html">返回主畫面</a>
+        </div>
+        <div class="legend" style="margin-top:8px;">
+          <div class="chip"><span class="dot gray"></span>未進料</div>
+          <div class="chip"><span class="dot yellow"></span>預定中</div>
+          <div class="chip"><span class="dot orange"></span>已進料</div>
+          <div class="chip"><span class="dot green"></span>已使用</div>
+        </div>
+        <div class="tools">
+          <input id="q" class="btn" placeholder="搜尋：編號/規格/材質/位置/重量/數量" style="flex:1 1 100%; min-width:240px;" />
+          <input id="importFile" class="file-input" type="file" accept=".xlsx,.xls,.xlsm,.ods,.csv" />
+          <label for="importFile" class="btn" style="flex:0 0 auto">匯入 Excel/CSV</label>
+          <button id="downloadTpl" class="btn" style="flex:0 0 auto">下載CSV模板</button>
+          
+          <select id="sortBy" class="btn">
+            <option value="id_asc">排序：構件名稱↑</option>
+            <option value="id_desc">排序：構件名稱↓</option>
+            <option value="status">排序：構件狀態</option>
+            <option value="quantity">排序：構件數量</option>
+            <option value="planned">排序：預計日期</option>
+            <option value="used">排序：使用日期</option>
+          </select>
+          
+        </div>
+        <div class="note">匯入格式（首行為標題）：「構件編號, 構件規格, 構件材質, 構件重量, 構件位置, 構件數量」。數值可保留千分位（如 12,701.0518），系統會自動解析。</div>
+        <div id="list" class="list" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <button class="btn fab-top" id="toTopLib">↑</button>
+
+    <script src="back.js?v=V6.1"></script>
+    <script src="vendor/xlsx.full.min.js?v=V6.1"></script>
+    <script>
+      const get=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
+      const set=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+      const fmtNum=(v)=>{
+        const n=Number(String(v||'').replace(/,/g,''));
+        if(Number.isFinite(n)) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return String(v||'');
+      };
+
+      function render(list){
+        const listEl=document.getElementById('list'); listEl.innerHTML='';
+        if(list.length===0){ listEl.innerHTML='<div class="muted">構件庫目前為空</div>'; return; }
+        // 狀態顯示：未進料/預定中/已進料/已使用（依構件編號+位置）
+        const today=get('todayRecords', []);
+        const receivedKeys=new Set(
+          today
+            .filter(t=>t.status==='received')
+            .map(t=>`${String(t.id)}|${String(t.position||'')}`)
+        );
+        const planned=get('plannedItems', []);
+        const scheduledKeys=new Set(
+          (planned||[])
+            .filter(p=>p.status==='scheduled')
+            .map(p=>`${String(p.id)}|${String(p.position||'')}`)
+        );
+        const usedRecords=get('usedRecords', []);
+        const usedSumByKey = (() => {
+          const m = new Map();
+          (usedRecords||[]).forEach(u => {
+            const k = `${String(u?.id)}|${String(u?.position||'')}`;
+            const val = Number(u?.qty ?? u?.quantity ?? u?.usedQty ?? 0);
+            m.set(k, (m.get(k) || 0) + (Number.isFinite(val) ? val : 0));
+          });
+          return m;
+        })();
+        list.forEach(r=>{
+          const row=document.createElement('div'); row.className='list-item row-toggle';
+          const key=`${String(r.id)}|${String(r.position||'')}`;
+          const isRec = receivedKeys.has(key);
+          const totalQty = Number(r?.quantity) || 0;
+          const usedQty = usedSumByKey.get(key) || 0;
+          const isUsed = usedQty > 0;
+          // 顏色：灰(未進料)／黃(預定中)／橘(已進料)／綠(已使用)
+          const dotCls = (isRec && isUsed)
+            ? 'green'
+            : (isRec ? 'orange' : (scheduledKeys.has(key) ? 'yellow' : 'gray'));
+          row.innerHTML=`<div>${r.id||'-'}</div><div class="spec-cell"><span class="muted">${r.spec||'-'}</span><span class="hint-dots"><span class="dot ${dotCls}"></span></span></div>`;
+          const details=document.createElement('div'); details.className='details';
+          const kv=(k,v)=>`<span class="kv"><span class="muted">${k}：</span>${v||'-'}</span>`;
+          details.innerHTML=kv('材質', r.material)+kv('重量', fmtNum(r.weight))+kv('位置', r.position)+kv('數量', fmtNum(r.quantity));
+          const wrap=document.createElement('div'); wrap.appendChild(row); wrap.appendChild(details);
+          row.addEventListener('click',()=>{ details.classList.toggle('open'); });
+          listEl.appendChild(wrap);
+        });
+      }
+
+      function syncRender(){
+        const all=get('componentsLibrary', []);
+        const q=(document.getElementById('q').value||'').trim().toUpperCase();
+        
+        const sortBy=(document.getElementById('sortBy').value||'id_asc');
+
+        // 狀態與時間對照
+        const today=get('todayRecords', [])||[];
+        const planned=get('plannedItems', [])||[];
+        const used=get('usedRecords', [])||[];
+        const key=(x)=>`${String(x.id)}|${String(x.position||'')}`;
+        const receivedKeys=new Set(today.filter(t=>t.status==='received').map(key));
+        const scheduledKeys=new Set(planned.filter(p=>p.status==='scheduled').map(key));
+        const statusInfo=new Map();
+        planned.forEach(r=>{ statusInfo.set(key(r), { plannedAt:r.plannedAt||'', actualAt:'' }); });
+        today.forEach(r=>{ statusInfo.set(key(r), { plannedAt:r.plannedAt||'', actualAt:r.actualAt||'' }); });
+        const usedSumByKey=(()=>{ const m=new Map(); (used||[]).forEach(u=>{ const k=key(u); const v=Number(u?.qty??u?.quantity??u?.usedQty??0); m.set(k,(m.get(k)||0)+(Number.isFinite(v)?v:0)); }); return m; })();
+        const latestUsedTextByKey=(()=>{ const m=new Map(); (used||[]).forEach(u=>{ const k=key(u); const t=String(u.usedAt||''); const nd=u.usedAtDate||''; const prevD=m.get(k)?.date||''; if(!prevD || (nd && prevD && nd>prevD)) m.set(k,{ text:t, date:nd }); else if(!m.has(k)) m.set(k,{ text:t, date:nd }); }); return m; })();
+
+        // 過濾：關鍵字＋狀態
+        const matchKeyword=(item)=>{
+          if(!q) return true;
+          const fields=[item.id,item.spec,item.material,item.position,item.weight,item.quantity].map(v=>String(v||'').toUpperCase());
+          return fields.some(f=> f.includes(q));
+        };
+        let filtered = all.filter(i=> matchKeyword(i));
+
+        // 排序
+        const statusOrder = { used:3, received:2, scheduled:1, pending:0 };
+        const cmpStatus=(a,b)=>{
+          const ka=key(a), kb=key(b);
+          const isRecA=receivedKeys.has(ka), isRecB=receivedKeys.has(kb);
+          const isUsedA=(usedSumByKey.get(ka)||0)>0, isUsedB=(usedSumByKey.get(kb)||0)>0;
+          const sa=isUsedA?'used':(isRecA?'received':(scheduledKeys.has(ka)?'scheduled':'pending'));
+          const sb=isUsedB?'used':(isRecB?'received':(scheduledKeys.has(kb)?'scheduled':'pending'));
+          const diff=(statusOrder[sa]||0)-(statusOrder[sb]||0);
+          return diff!==0? -diff : String(a.id).localeCompare(String(b.id));
+        };
+        const cmpPlanned=(a,b)=>{
+          const ia=statusInfo.get(key(a))||{}; const ib=statusInfo.get(key(b))||{};
+          return String(ia.plannedAt||'').localeCompare(String(ib.plannedAt||'')) || String(a.id).localeCompare(String(b.id));
+        };
+        const cmpUsed=(a,b)=>{
+          const ua=latestUsedTextByKey.get(key(a))||{date:''};
+          const ub=latestUsedTextByKey.get(key(b))||{date:''};
+          // 以日期新到舊排序
+          const diff=String(ub.date||'').localeCompare(String(ua.date||''));
+          return diff!==0? diff : String(a.id).localeCompare(String(b.id));
+        };
+        if(sortBy==='id_desc') filtered = filtered.sort((a,b)=> String(b.id).localeCompare(String(a.id)) );
+        else if(sortBy==='status') filtered = filtered.sort(cmpStatus);
+        else if(sortBy==='planned') filtered = filtered.sort(cmpPlanned);
+        else if(sortBy==='used') filtered = filtered.sort(cmpUsed);
+        else if(sortBy==='quantity') filtered = filtered.sort((a,b)=>{ const qa=Number(a?.quantity)||0; const qb=Number(b?.quantity)||0; if(qb!==qa) return qb-qa; return String(a.id).localeCompare(String(b.id)); });
+        else filtered = filtered.sort((a,b)=> String(a.id).localeCompare(String(b.id)) );
+
+        render(filtered);
+      }
+
+      function saveMerged(items){
+        const prev=get('componentsLibrary', []);
+        const toKey=(x)=>`${String(x?.id||'').trim()}|${String(x?.position||'').trim()}`;
+        const map=new Map(prev.map(x=>[toKey(x), x]));
+        const toNum=(v)=>{ const n=Number(String(v??'').replace(/,/g,'')); return Number.isFinite(n)?n:''; };
+        const sumQty=(a,b)=>{ const na=toNum(a), nb=toNum(b); if(na===''&&nb==='') return ''; return (Number(na||0)+Number(nb||0)); };
+        const pick=(cur, fallback)=>{ const isNil=cur===undefined||cur===null||cur===''; return isNil ? (fallback ?? '') : cur; };
+        items.forEach(x=>{
+          const id=String(x?.id||'').trim(); if(!id) return;
+          const position=String(x?.position||'').trim();
+          const key=`${id}|${position}`;
+          const e=map.get(key)||{};
+          const merged={
+            id,
+            spec: String(pick(x?.spec, e?.spec)).trim(),
+            material: String(pick(x?.material, e?.material)).trim(),
+            weight: pick(x?.weight, e?.weight),
+            area: pick(x?.area, e?.area),
+            position,
+            quantity: sumQty(e?.quantity, x?.quantity)
+          };
+          map.set(key, merged);
+        });
+        set('componentsLibrary', Array.from(map.values()));
+      }
+
+      function handleRows(rows){
+        if(!rows || rows.length<2){ alert('工作表沒有資料'); return; }
+        const header=rows[0].map(h=>String(h).trim());
+        const findIdx=(names)=>{
+          for(const n of names){ const i=header.indexOf(n); if(i!==-1) return i; }
+          return -1;
+        };
+        const idxId = findIdx(['構件編號','編號','ID']);
+        const idxSpec = findIdx(['構件規格','規格']);
+        const idxMat = findIdx(['構件材質','材質']);
+        const idxW = findIdx(['構件重量','重量']);
+        const idxPos = findIdx(['構件位置','位置']);
+        const idxQty = findIdx(['構件數量','數量']);
+        const required=['構件編號','構件規格','構件材質','構件重量','構件位置','構件數量'];
+        const presentIdx=[idxId,idxSpec,idxMat,idxW,idxPos,idxQty];
+        const missing=required.filter((h,i)=>presentIdx[i]===-1);
+        if(missing.length){ alert('匯入失敗，缺少欄位：'+missing.join('、')); return; }
+        const items=[];
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i]; if(!r || r.length===0) continue;
+          const id=r[idxId]??''; if(!String(id).trim()) continue;
+          const spec=r[idxSpec]??'';
+          const material=r[idxMat]??'';
+          const weight=r[idxW]??'';
+          const iArea=findIdx(['構件面積','面積']);
+          const area=iArea!==-1 ? (r[iArea]??'') : '';
+          const position=r[idxPos]??'';
+          const quantity=r[idxQty]??'';
+          const n=(v)=>{ const t=String(v||'').replace(/,/g,'').trim(); const num=Number(t); return Number.isFinite(num)?Math.round(num*100)/100:''; };
+          items.push({ id:String(id).trim(), spec:String(spec).trim(), material:String(material).trim(), weight:n(weight), area:n(area), position:String(position).trim(), quantity:n(quantity) });
+        }
+        saveMerged(items);
+        alert(`已匯入 ${items.length} 筆構件`);
+        syncRender();
+      }
+
+      function handleWorkbook(wb){
+        const sheetName = wb.SheetNames.find(n=>String(n||'').trim()) || wb.SheetNames[0];
+        const ws=wb.Sheets[sheetName];
+        const rows=XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+        handleRows(rows);
+      }
+
+      function parseCSV(text){
+        const rows=[]; let row=[]; let cur=''; let i=0; let inQuotes=false; const s=String(text||'');
+        const pushCell=()=>{ row.push(cur); cur=''; };
+        const pushRow=()=>{ rows.push(row); row=[]; };
+        while(i<s.length){
+          const ch=s[i];
+          if(inQuotes){
+            if(ch==='"' && s[i+1]==='"'){ cur+='"'; i+=2; continue; }
+            if(ch==='"'){ inQuotes=false; i++; continue; }
+            cur+=ch; i++; continue;
+          } else {
+            if(ch==='"'){ inQuotes=true; i++; continue; }
+            if(ch===','){ pushCell(); i++; continue; }
+            if(ch==='\r'){ i++; continue; }
+            if(ch==='\n'){ pushCell(); pushRow(); i++; continue; }
+            cur+=ch; i++; continue;
+          }
+        }
+        pushCell(); pushRow();
+        return rows;
+      }
+
+      function setup(){
+        const fileEl=document.getElementById('importFile');
+        const q=document.getElementById('q');
+        
+        const sortBy=document.getElementById('sortBy');
+        const clear=document.getElementById('clearLib');
+        const tpl=document.getElementById('downloadTpl');
+        fileEl.addEventListener('change',(e)=>{
+          try{
+            const file=e.target.files?.[0]; if(!file) return;
+            const ext=(file.name.split('.').pop()||'').toLowerCase();
+            const reader=new FileReader();
+            const excelLike=['xlsx','xls','xlsm','xlsb','ods'];
+            if(excelLike.includes(ext)){
+              reader.onload=()=>{ try{ if(typeof XLSX==='undefined'){ alert('Excel 函式庫未載入（可能裝置離線或 CDN 無法連線）。請連網或改用 CSV 另存 UTF-8。'); return; } const data=new Uint8Array(reader.result); const wb=XLSX.read(data, { type:'array' }); handleWorkbook(wb); } catch(err){ console.error(err); alert('Excel 解析失敗，請確認檔案格式（支援 .xlsx/.xls/.xlsm/.ods）'); } };
+              reader.readAsArrayBuffer(file);
+            } else {
+              reader.onload=()=>{ try{
+                const text=reader.result;
+                if(typeof XLSX==='undefined'){
+                  const rows=parseCSV(text);
+                  handleRows(rows);
+                } else {
+                  const wb=XLSX.read(text, { type:'string' });
+                  handleWorkbook(wb);
+                }
+              } catch(err){ console.error(err); alert('CSV 解析失敗，請確認編碼（建議 UTF-8），或改用 Excel 另存為 .xlsx'); } };
+              reader.readAsText(file);
+            }
+          } catch(err){ console.error(err); alert('讀取檔案失敗，請在手機授權檔案存取或改用 CSV'); }
+          fileEl.value='';
+        });
+        q.addEventListener('input', ()=>{ q.value = q.value.toUpperCase(); syncRender(); });
+        
+        sortBy.addEventListener('change', syncRender);
+        // 移除清空構件庫按鈕以避免誤操作
+        tpl.addEventListener('click',()=>{
+          const header=['構件編號','構件規格','構件材質','構件重量','構件位置','構件數量'];
+          const sample=['UVOE3','PL-25*500*650','SN490BM','112.2936','0/A','3'];
+          const csv=[header, sample].map(row=>row.map(cell=>`"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+          const bom='\uFEFF';
+          const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
+          const url=URL.createObjectURL(blob); const a=document.createElement('a');
+          a.href=url; a.download='components_template.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+        });
+      }
+
+      setup();
+      syncRender();
+      (function(){ const b=document.getElementById('toTopLib'); if(!b) return; b.addEventListener('click',()=>{ window.scrollTo({ top:0, behavior:'smooth' }); }); const onScroll=()=>{ b.style.display = window.scrollY>200 ? 'inline-flex' : 'none'; }; window.addEventListener('scroll', onScroll); onScroll(); })();
+    </script>
+  </body>
+</html>

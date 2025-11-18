@@ -1,0 +1,18 @@
+:root{--bg:#0f1320;--card:#1f2430;--border:#2a2f3a;--text:#eaeef2;--muted:#9aa0a6;--primary:#3498db;--ok:#27ae60;--danger:#e74c3c}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+.section{padding:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.row{display:flex;gap:12px;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.app-title{font-weight:700;font-size:18px;margin-bottom:8px}
+.muted{color:var(--muted)}
+.muted-sm{color:var(--muted);font-size:12px}
+.btn{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer}
+.btn.primary{background:var(--primary);border-color:var(--primary)}
+.btn.danger{background:var(--danger);border-color:var(--danger)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.fab-top{position:fixed;right:16px;bottom:40px;border-radius:999px;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center}
+.progress-ring{width:120px;height:120px;border:1px solid var(--border);border-radius:50%;position:relative}
+.progress-ring .inner{position:absolute;inset:12px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:600}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid var(--border);padding:6px;text-align:left}
