@@ -2,93 +2,106 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>預計進料</title>
+<title>預計進料登記</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* 你原本的 UI CSS 全部保留，我沒有改動 */
-.group-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin: 20px 0 10px;
-    color: #fff;
-}
+/* 預計進料卡片樣式 */
 .plan-card {
     background:#1c2433;
     padding:16px;
     margin:10px 0;
     border-radius:14px;
     color:#fff;
-    cursor:pointer;
-    transition:background 0.2s;
 }
-.plan-card:hover { background:#222b3b; }
-.card-header { display:flex; justify-content:space-between; align-items:center; }
-.plan-details {
-    margin-top:10px;
-    padding-top:10px;
-    border-top:1px solid #2a3142;
-    display:none;
+
+/* 卡片頭部 */
+.plan-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
 }
-.detail-sub { font-size:14px; color:#bbb; margin:6px 0; }
-.receive-btn {
-    margin-top:10px;
-    padding:10px;
+
+/* 位置選單 */
+.position-select {
     width:100%;
-    text-align:center;
-    background:#27ae60;
-    border-radius:10px;
-    font-weight:700;
+    padding:12px;
+    border-radius:14px;
+    background:#1e2737;
+    color:#fff;
+    margin-top:10px;
+    font-size:15px;
 }
-#loadingSpinner { display:none; text-align:center; padding:14px; }
+
+/* 按鈕 */
+.delete-btn {
+    background:#ff4b4b;
+    padding:12px 18px;
+    border-radius:14px;
+    font-size:15px;
+}
+.receive-btn {
+    background:#2f7dff;
+    padding:12px 18px;
+    border-radius:14px;
+    margin-left:10px;
+    font-size:15px;
+}
+
+/* Loading 圈圈 */
+#loadingSpinner {
+    display:none;
+    text-align:center;
+    padding:16px;
+}
 #loadingSpinner svg {
-    width:28px; height:28px;
+    width:28px;
+    height:28px;
     animation: spin 0.9s linear infinite;
 }
-@keyframes spin { from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
-#loadMessage { color:#aaa; text-align:center; padding:12px; display:none; }
-#backTopBtn {
-    position: fixed; right: 18px; bottom: 22px;
-    width: 48px; height: 48px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(6px);
-    display: flex; justify-content: center;
-    align-items: center; cursor: pointer;
-    opacity: 0; pointer-events: none;
-    transition: opacity .3s, transform .25s, bottom .25s;
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
-#backTopBtn.visible { opacity: 1; pointer-events: auto; transform: scale(1); }
-#backTopBtn svg { width: 22px; height: 22px; fill: #fff; }
+
+/* 已載入全部 */
+#loadMessage {
+    display:none;
+    color:#aaa;
+    text-align:center;
+    padding:16px;
+}
 </style>
 </head>
 
 <body>
 
+<!-- 頂部 -->
 <div class="top-bar">
-    <div class="top-bar-title">預計進料</div>
-    <div class="top-bar-actions">
-        <a href="index.html" class="top-btn">返回主畫面</a>
-    </div>
+    <div class="top-bar-title">預計進料登記</div>
+    <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
+<!-- 輸入區 -->
 <div class="screen-card">
-    <div class="section-title">搜尋</div>
-    <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 規格 / 位置">
 
-    <div class="section-title">排序方式</div>
-    <select id="sortSelect" class="input-bar">
-        <option value="date_asc">日期（近 → 遠）</option>
-        <option value="date_desc">日期（遠 → 近）</option>
-        <option value="id_asc">構件編號（A → Z）</option>
-        <option value="id_desc">構件編號（Z → A）</option>
-    </select>
+    <div class="section-title">構件編號</div>
+    <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
+
+    <div class="section-title">預計到貨日期</div>
+    <input id="dateInput" type="date" class="input-bar">
+
+    <button id="submitBtn" class="primary-btn full" style="margin-top:12px;">
+        送出
+    </button>
 </div>
 
+<!-- 清單區 -->
 <div class="screen-card">
-    <div class="section-title">預計進料列表</div>
+    <div class="section-title">目前預計進料清單</div>
 
+    <!-- 動態插入 -->
     <div id="planList"></div>
 
     <div id="loadingSpinner">
@@ -100,13 +113,10 @@
     <div id="loadMessage">已載入全部資料</div>
 </div>
 
-<div id="backTopBtn">
-    <svg viewBox="0 0 24 24">
-        <path d="M12 4l-8 8h5v8h6v-8h5z"></path>
-    </svg>
-</div>
-
+<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- 主邏輯 -->
 <script src="planned.js"></script>
 
 </body>
