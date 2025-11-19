@@ -146,12 +146,19 @@
     <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
 
     <div class="section-title">預計到貨日期</div>
-    <!-- 用文字輸入框 + 自製日曆 -->
     <input id="dateInput"
            class="input-bar"
            placeholder="點擊選擇日期"
            readonly
            style="cursor:pointer;background:#1c2433;">
+
+    <div class="section-title">預計數量</div>
+    <input id="qtyInput"
+           class="input-bar"
+           value="1"
+           type="number"
+           min="1"
+           style="background:#1c2433;color:#fff;">
 
     <button id="submitBtn" class="primary-btn full" style="margin-top:12px;">
         送出
@@ -201,9 +208,9 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ==========================================
    📌 全域資料
 ========================================== */
-let plans = [];        // planned_items（未收貨）
-let components = [];   // components_library
-let usedPositions = {}; // { item_id: Set(positions) }
+let plans = [];
+let components = [];
+let usedPositions = {};
 
 const planList       = document.getElementById("planList");
 const loadingSpinner = document.getElementById("loadingSpinner");
@@ -223,7 +230,7 @@ const calNextBtn  = document.getElementById("calNext");
 let calCurrent = new Date();
 calCurrent.setDate(1);
 
-/* 打開日曆（定位在輸入框下方） */
+/* 打開日曆 */
 function openCalendar() {
     const rect = dateInput.getBoundingClientRect();
     calOverlay.style.display = "block";
@@ -242,30 +249,14 @@ function openCalendar() {
     renderCalendar();
 }
 
-/* 關閉日曆 */
-function closeCalendar() {
-    calOverlay.style.display = "none";
-}
+function closeCalendar() { calOverlay.style.display = "none"; }
 
-/* 點輸入框開啟 */
 dateInput.addEventListener("click", openCalendar);
+calOverlay.addEventListener("click", e=>{ if(e.target===calOverlay) closeCalendar(); });
 
-/* 點覆蓋層空白關閉（避免點到 panel） */
-calOverlay.addEventListener("click", (e)=>{
-    if (e.target === calOverlay) closeCalendar();
-});
+calPrevBtn.addEventListener("click", ()=>{ calCurrent.setMonth(calCurrent.getMonth()-1); renderCalendar(); });
+calNextBtn.addEventListener("click", ()=>{ calCurrent.setMonth(calCurrent.getMonth()+1); renderCalendar(); });
 
-/* 月份切換 */
-calPrevBtn.addEventListener("click", ()=>{
-    calCurrent.setMonth(calCurrent.getMonth() - 1);
-    renderCalendar();
-});
-calNextBtn.addEventListener("click", ()=>{
-    calCurrent.setMonth(calCurrent.getMonth() + 1);
-    renderCalendar();
-});
-
-/* 畫出整個月份 */
 function renderCalendar() {
     calGrid.innerHTML = "";
 
@@ -282,26 +273,26 @@ function renderCalendar() {
 
     const names = ["日","一","二","三","四","五","六"];
     names.forEach(n=>{
-        const e = document.createElement("div");
-        e.className = "day-name";
-        e.textContent = n;
+        const e=document.createElement("div");
+        e.className="day-name";
+        e.textContent=n;
         calGrid.appendChild(e);
     });
 
     for (let i=0;i<firstWeekDay;i++) {
-        const blank = document.createElement("div");
-        blank.className = "day-cell day-disabled";
+        const blank=document.createElement("div");
+        blank.className="day-cell day-disabled";
         calGrid.appendChild(blank);
     }
 
-    for (let d=1; d<=daysInMonth; d++) {
-        const cell = document.createElement("div");
-        cell.className = "day-cell";
-        cell.textContent = d;
+    for (let d=1;d<=daysInMonth;d++) {
+        const cell=document.createElement("div");
+        cell.className="day-cell";
+        cell.textContent=d;
 
-        cell.addEventListener("click", ()=>{
-            const mm = String(month+1).padStart(2,"0");
-            const dd = String(d).padStart(2,"0");
+        cell.addEventListener("click",()=>{
+            const mm=String(month+1).padStart(2,"0");
+            const dd=String(d).padStart(2,"0");
             dateInput.value = `${year}-${mm}-${dd}`;
             closeCalendar();
         });
@@ -314,129 +305,130 @@ function renderCalendar() {
    Step 1：載入 DB 資料
 ========================================== */
 async function loadMetaData() {
-    // 尚未收貨的預計進料
+
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
-        .neq("status", "received")
-        .order("planned_date", { ascending: true });
+        .neq("status","received")
+        .order("planned_date",{ ascending:true });
 
     plans = plan || [];
 
-    // 構件庫
-    const { data: comp } = await db
-        .from("components_library")
-        .select("*");
-
+    const { data: comp } = await db.from("components_library").select("*");
     components = comp || [];
 
-    // today_records：紀錄已經收貨的 position
     const { data: today } = await db
         .from("today_records")
-        .select("item_id, position");
+        .select("item_id,position");
 
     usedPositions = {};
-    (today || []).forEach(r=>{
-        if (!r.item_id || !r.position) return;
-        if (!usedPositions[r.item_id]) usedPositions[r.item_id] = new Set();
+    (today||[]).forEach(r=>{
+        if(!usedPositions[r.item_id]) usedPositions[r.item_id]=new Set();
         usedPositions[r.item_id].add(r.position);
     });
 }
 
 /* ==========================================
-   Step 2：渲染清單（一次全部）
+   Step 2：渲染清單
 ========================================== */
 function renderPlanList() {
-    planList.innerHTML = "";
+    planList.innerHTML="";
     loadMessage.style.display = plans.length ? "none" : "block";
 
-    // 依日期分組
-    let lastDate = null;
+    let lastDate=null;
 
     plans.forEach(p=>{
-        const dateText = p.planned_date || "";
+        const dateText=p.planned_date||"";
 
-        if (dateText !== lastDate) {
-            const header = document.createElement("div");
-            header.className = "section-title";
-            header.style.marginTop = "14px";
-            header.textContent = dateText || "未填日期";
+        if(dateText!==lastDate){
+            const header=document.createElement("div");
+            header.className="section-title";
+            header.style.marginTop="14px";
+            header.textContent=dateText||"未填日期";
             planList.appendChild(header);
-            lastDate = dateText;
+            lastDate=dateText;
         }
 
-        const card = document.createElement("div");
-        card.className = "plan-card";
-        card.id = "card_" + p.id;
+        const card=document.createElement("div");
+        card.className="plan-card";
+        card.id="card_"+p.id;
 
-        const compList = components.filter(c=> c.item_id === p.item_id);
-        const allPositions = Array.from(new Set(
-            compList.map(c=> c.position).filter(Boolean)
-        ));
+        const headerRow=document.createElement("div");
+        headerRow.className="plan-header";
 
-        const usedSet = usedPositions[p.item_id] || new Set();
-        const availablePositions = allPositions.filter(pos=> !usedSet.has(pos));
+        const title=document.createElement("div");
+        title.style.fontSize="18px";
+        title.style.fontWeight="700";
+        title.textContent=p.item_id;
 
-        const headerRow = document.createElement("div");
-        headerRow.className = "plan-header";
-
-        const title = document.createElement("div");
-        title.style.fontSize = "18px";
-        title.style.fontWeight = "700";
-        title.textContent = p.item_id;
-
-        const dateLabel = document.createElement("div");
-        dateLabel.style.color = "#bbb";
-        dateLabel.textContent = dateText;
+        const dateLabel=document.createElement("div");
+        dateLabel.style.color="#bbb";
+        dateLabel.textContent=dateText;
 
         headerRow.appendChild(title);
         headerRow.appendChild(dateLabel);
         card.appendChild(headerRow);
 
-        // 位置選單或提示
-        let selectEl = null;
-        if (availablePositions.length > 0) {
-            selectEl = document.createElement("select");
-            selectEl.className = "position-select";
-            selectEl.id = "pos_" + p.id;
+        /* 顯示預計數量 */
+        const qtyRow=document.createElement("div");
+        qtyRow.style.fontSize="13px";
+        qtyRow.style.color="#ccc";
+        qtyRow.style.marginTop="4px";
+        qtyRow.textContent=`預計數量：${p.planned_qty ?? 1}`;
+        card.appendChild(qtyRow);
 
-            const opt0 = document.createElement("option");
-            opt0.value = "";
-            opt0.textContent = "選擇位置";
+        /* 位置選單 */
+        const compList=components.filter(c=>c.item_id===p.item_id);
+        const allPositions=Array.from(new Set(
+            compList.map(c=>c.position).filter(Boolean)
+        ));
+
+        const usedSet=usedPositions[p.item_id] || new Set();
+        const availablePositions=allPositions.filter(pos=>!usedSet.has(pos));
+
+        let selectEl=null;
+
+        if(availablePositions.length>0){
+            selectEl=document.createElement("select");
+            selectEl.className="position-select";
+            selectEl.id="pos_"+p.id;
+
+            const opt0=document.createElement("option");
+            opt0.value="";
+            opt0.textContent="選擇位置";
             selectEl.appendChild(opt0);
 
             availablePositions.forEach(pos=>{
-                const opt = document.createElement("option");
-                opt.value = pos;
-                opt.textContent = pos;
+                const opt=document.createElement("option");
+                opt.value=pos;
+                opt.textContent=pos;
                 selectEl.appendChild(opt);
             });
-
             card.appendChild(selectEl);
         } else {
-            const tip = document.createElement("div");
-            tip.style.color = "#aaa";
-            tip.style.fontSize = "13px";
-            tip.style.marginTop = "10px";
-            tip.textContent = "此構件所有位置皆已標記收貨";
+            const tip=document.createElement("div");
+            tip.style.color="#aaa";
+            tip.style.fontSize="13px";
+            tip.style.marginTop="10px";
+            tip.textContent="此構件所有位置皆已標記收貨";
             card.appendChild(tip);
         }
 
-        // 按鈕列
-        const btnRow = document.createElement("div");
-        btnRow.style.display = "flex";
-        btnRow.style.marginTop = "10px";
-        btnRow.style.gap = "10px";
+        /* 按鈕列 */
+        const btnRow=document.createElement("div");
+        btnRow.style.display="flex";
+        btnRow.style.marginTop="10px";
+        btnRow.style.gap="10px";
 
-        const delBtn = document.createElement("button");
-        delBtn.className = "danger-btn";
-        delBtn.textContent = "刪除";
-        delBtn.addEventListener("click", ()=> deletePlan(p.id));
+        const delBtn=document.createElement("button");
+        delBtn.className="danger-btn";
+        delBtn.textContent="刪除";
+        delBtn.addEventListener("click",()=>deletePlan(p.id));
 
-        const recvBtn = document.createElement("button");
-        recvBtn.className = "primary-btn";
-        recvBtn.textContent = "標記已收";
-        recvBtn.addEventListener("click", ()=> markReceived(p.id, p.item_id));
+        const recvBtn=document.createElement("button");
+        recvBtn.className="primary-btn";
+        recvBtn.textContent="標記已收";
+        recvBtn.addEventListener("click",()=>markReceived(p.id,p.item_id));
 
         btnRow.appendChild(delBtn);
         btnRow.appendChild(recvBtn);
@@ -449,98 +441,78 @@ function renderPlanList() {
 /* ==========================================
    Step 3：送出預計進料
 ========================================== */
-document.getElementById("submitBtn").addEventListener("click", async ()=>{
-    const itemId = document.getElementById("itemIdInput").value.trim();
-    const date   = dateInput.value.trim();
+document.getElementById("submitBtn").addEventListener("click",async ()=>{
+    const itemId=document.getElementById("itemIdInput").value.trim();
+    const date=dateInput.value.trim();
+    const qty=Number(document.getElementById("qtyInput").value||1);
 
-    if (!itemId) return alert("請輸入構件編號");
-    if (!date)   return alert("請選擇預計到貨日期");
+    if(!itemId) return alert("請輸入構件編號");
+    if(!date) return alert("請選擇預計到貨日期");
 
     const { error } = await db.from("planned_items").insert({
-        item_id: itemId,
-        planned_date: date,
-        status: "planned"
+        item_id:itemId,
+        planned_date:date,
+        planned_qty:qty,
+        status:"planned"
     });
 
-    if (error) {
+    if(error){
         console.error(error);
-        alert("新增失敗：" + error.message);
+        alert("新增失敗："+error.message);
         return;
     }
 
-    document.getElementById("itemIdInput").value = "";
-    // 日期不清空，方便連續輸入
+    document.getElementById("itemIdInput").value="";
+    // 日期保留
+    document.getElementById("qtyInput").value="1";
 
     await loadMetaData();
     renderPlanList();
 });
 
 /* ==========================================
-   Step 4：標記已收 → today_records + planned_items
+   Step 4：標記已收
 ========================================== */
-async function markReceived(id, itemId) {
-    const sel = document.getElementById("pos_" + id);
-    if (!sel || !sel.value) {
+async function markReceived(id,itemId){
+    const sel=document.getElementById("pos_"+id);
+    if(!sel||!sel.value){
         alert("請先選擇位置");
         return;
     }
 
-    const pos = sel.value;
+    const pos=sel.value;
+    if(!confirm(`確定將 ${itemId}（${pos}）標記為已收貨？`)) return;
 
-    if (!confirm(`確定將 ${itemId}（${pos}）標記為已收貨？`)) return;
+    const nowIso=new Date().toISOString();
 
-    const nowIso = new Date().toISOString();
-
-    const { error: e1 } = await db.from("today_records").insert({
-        item_id: itemId,
-        position: pos,
-        status: "received",
-        used_at: nowIso
+    const { error:e1 }=await db.from("today_records").insert({
+        item_id:itemId,
+        position:pos,
+        status:"received",
+        used_at:nowIso
     });
+    if(e1){ alert("寫入 today_records 失敗"); return;}
 
-    if (e1) {
-        console.error(e1);
-        alert("寫入 today_records 失敗：" + e1.message);
-        return;
-    }
-
-    const { error: e2 } = await db
+    const { error:e2 }=await db
         .from("planned_items")
-        .update({ status: "received", position: pos })
-        .eq("id", id);
+        .update({ status:"received", position:pos })
+        .eq("id",id);
 
-    if (e2) {
-        console.error(e2);
-        alert("更新 planned_items 失敗：" + e2.message);
-        return;
-    }
+    if(e2){ alert("更新 planned_items 失敗"); return;}
 
-    // 從畫面移除
-    const card = document.getElementById("card_" + id);
-    if (card) card.remove();
-
-    // 重新載入 usedPositions（避免位置還出現在其他卡）
     await loadMetaData();
     renderPlanList();
-
     alert("已標記為已收貨");
 }
 
 /* ==========================================
-   Step 5：刪除預計進料
+   Step 5：刪除
 ========================================== */
-async function deletePlan(id) {
-    if (!confirm("確定要刪除此預計進料嗎？")) return;
+async function deletePlan(id){
+    if(!confirm("確定要刪除此預計進料嗎？")) return;
 
-    const { error } = await db.from("planned_items").delete().eq("id", id);
-    if (error) {
-        console.error(error);
-        alert("刪除失敗：" + error.message);
-        return;
-    }
-
-    const card = document.getElementById("card_" + id);
-    if (card) card.remove();
+    const { error }=await db.from("planned_items").delete().eq("id",id);
+    if(error){ alert("刪除失敗"); return;}
 
     await loadMetaData();
     renderPlanList();
@@ -550,9 +522,9 @@ async function deletePlan(id) {
    🚀 初始化
 ========================================== */
 (async ()=>{
-    loadingSpinner.style.display = "block";
+    loadingSpinner.style.display="block";
     await loadMetaData();
-    loadingSpinner.style.display = "none";
+    loadingSpinner.style.display="none";
     renderPlanList();
 })();
 </script>
