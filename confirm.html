@@ -7,327 +7,300 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-body {
-    background:#0f1320;
-    color:#fff;
-    margin:0;
-    font-family:system-ui;
-}
 
-/* 頂部 */
-.top-bar {
-    background:#11161f;
-    padding:16px;
-    border-radius:20px;
-    margin:12px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-.top-bar-title { font-size:20px; font-weight:700; }
-.top-btn {
-    padding:6px 16px;
-    background:#1e2737;
-    color:#fff;
-    border-radius:15px;
-    font-size:14px;
-}
-
-/* 搜尋 */
-.screen-card {
-    background:#141821;
-    margin:16px;
-    padding:20px;
-    border-radius:20px;
-}
-
-.section-title { font-size:18px; font-weight:700; margin-bottom:12px; }
-
-/* 字卡 */
+/* 整體字卡 */
 .card {
-    background:#1c2433;
-    padding:16px;
-    margin:12px 0;
-    border-radius:16px;
-    cursor:pointer;
+    background: #1c2433;
+    padding: 14px;
+    margin: 12px 0;
+    border-radius: 14px;
+    color: #fff;
 }
 
-.row-line {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:10px;
+/* 一欄排版（關鍵） */
+.card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: nowrap; /* 不允許換行 */
 }
 
-/* 數量按鈕 */
+/* 編號 */
+.item-id {
+    font-size: 18px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* 位置 */
+.item-pos {
+    color: #bbb;
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+/* 數量調整區 */
 .qty-box {
-    display:flex;
-    align-items:center;
-    gap:8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .qty-btn {
-    width:32px;
-    height:32px;
-    border-radius:8px;
-    background:#1e2737;
-    color:#fff;
-    font-size:20px;
+    width: 28px;
+    height: 28px;
+    background: #2a3142;
+    border-radius: 6px;
     display:flex;
     justify-content:center;
     align-items:center;
+    cursor:pointer;
 }
 
 .qty-num {
-    width:40px;
-    text-align:center;
-    font-size:18px;
+    width: 32px;
+    text-align: center;
 }
 
-/* 詳細區 */
-.detail {
-    display:none;
-    border-top:1px solid #2a3142;
-    margin-top:12px;
-    padding-top:12px;
-    color:#bbb;
-    font-size:15px;
+/* 剩餘 */
+.item-left {
+    font-size: 13px;
+    color: #999;
+    white-space: nowrap;
 }
 
+/* 按鈕（改成小尺寸，不再換行） */
 .use-btn {
-    margin-top:14px;
-    width:100%;
-    padding:14px;
-    border-radius:14px;
-    text-align:center;
-    background:#2f7dff;
-    color:#fff;
+    padding: 8px 14px;
+    background: #2f7dff;
+    border-radius: 10px;
+    white-space: nowrap;
+    cursor: pointer;
+    font-size: 14px;
 }
+
+.search-box {
+    width:100%;
+    padding:12px;
+    background:#1c2433;
+    border-radius:12px;
+    color:#fff;
+    margin-bottom:12px;
+}
+
 </style>
+
 </head>
 
 <body>
 
-<!-- 頂部 -->
 <div class="top-bar">
     <div class="top-bar-title">構件使用確認</div>
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-<!-- 搜尋 -->
 <div class="screen-card">
+
     <div class="section-title">搜尋</div>
-    <input id="searchBox" class="input-bar" placeholder="搜尋：構件編號 / 規格 / 位置">
+    <input id="searchBox" class="search-box" placeholder="搜尋：構件編號 / 規格 / 位置">
+
 </div>
 
 <div class="screen-card">
-    <div id="list"></div>
+    <div id="itemList"></div>
 </div>
 
-<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ============================================
+   🔧 Supabase 初始化
+============================================ */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
+
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* -------------------------
-   載入資料來源：
-   只顯示在 planned_items 中
-   status = 'received'
-   且 qty_remaining > 0 的構件
--------------------------- */
-let components = [];
-let planned = [];
-let merged = [];
+/* ============================================
+   全域資料
+============================================ */
+let planned = [];        // planned_items
+let components = [];     // components_library
+let grouped = [];        // 合併後資料（item_id + position）
 
+/* ============================================
+   Step 1：載入資料
+============================================ */
 async function loadData() {
 
-    // 1. planned_items (僅顯示已收貨)
+    /* 1. planned_items（僅顯示有登記過的） */
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
-        .eq("status", "received");
+        .order("date", { ascending: true });
 
     planned = plan || [];
 
-    // 2. components_library
+    /* 2. components_library（抓明細用） */
     const { data: comp } = await db
         .from("components_library")
         .select("*");
 
     components = comp || [];
 
-    mergeData();
-    renderList(merged);
+    groupData();
+    renderList(grouped);
 }
 
-/* ----------------------------------
-   合併：item_id + position 相同才合併
------------------------------------ */
-function mergeData() {
+/* ============================================
+   Step 2：合併（item_id + position）
+============================================ */
+function groupData() {
 
-    const temp = {};
+    const map = {};
 
     planned.forEach(p => {
-        const key = p.item_id + "|" + p.position;
 
-        if (!temp[key]) {
-            temp[key] = {
+        const key = `${p.item_id}__${p.position}`;
+
+        if (!map[key]) {
+            map[key] = {
                 item_id: p.item_id,
                 position: p.position,
-                total_left: p.planned_qty || 1,
-                date: p.date
+                total_qty: 1,  // planned 每筆當成 1
+                left: 1        // 剩餘
             };
         } else {
-            temp[key].total_left += (p.planned_qty || 1);
+            map[key].total_qty++;
+            map[key].left++;
         }
     });
 
-    merged = Object.values(temp);
+    grouped = Object.values(map);
 }
 
-/* ----------------------------------
-   取得詳細資訊
------------------------------------ */
-function findComponent(item_id, position) {
-    return components.find(c => c.item_id === item_id && c.position === position) || {};
-}
+/* ============================================
+   Step 3：渲染字卡（全部一行）
+============================================ */
+function renderList(list) {
 
-/* ----------------------------------
-   渲染卡片
------------------------------------ */
-function renderList(arr) {
-    const list = document.getElementById("list");
-    list.innerHTML = "";
+    const itemList = document.getElementById("itemList");
+    itemList.innerHTML = "";
 
-    arr.forEach(item => {
+    list.forEach((item, idx) => {
 
-        const comp = findComponent(item.item_id, item.position);
-
-        const id = item.item_id + "_" + item.position.replace(/[^A-Za-z0-9]/g, "");
+        const comp = components.find(c =>
+            c.item_id === item.item_id && c.position === item.position
+        ) || {};
 
         const html = `
-        <div class="card" onclick="toggleDetail('${id}')">
+            <div class="card">
 
-            <div class="row-line">
-                <div style="font-size:18px; font-weight:600;">${item.item_id}</div>
-                <div>${item.position}</div>
-            </div>
+                <div class="card-row">
 
-            <!-- 數量列 -->
-            <div class="row-line" onclick="event.stopPropagation();">
-                <div class="qty-box">
-                    <div class="qty-btn" onclick="changeQty('${id}', -1)">-</div>
-                    <div class="qty-num" id="qty_${id}">1</div>
-                    <div class="qty-btn" onclick="changeQty('${id}', 1)">+</div>
+                    <div class="item-id">${item.item_id}</div>
+
+                    <div class="item-pos">${item.position}</div>
+
+                    <div class="qty-box">
+                        <div class="qty-btn" onclick="decQty(${idx})">−</div>
+                        <div class="qty-num" id="qty_${idx}">1</div>
+                        <div class="qty-btn" onclick="incQty(${idx})">+</div>
+                    </div>
+
+                    <div class="item-left">( 剩餘 ${item.left} )</div>
+
+                    <div class="use-btn" onclick="confirmUse(${idx})">
+                        確認使用
+                    </div>
+
                 </div>
 
-                <div style="color:#aaa;">（剩餘 ${item.total_left}）</div>
             </div>
+        `;
 
-            <div class="detail" id="detail_${id}">
-                規格：${comp.spec || ""}<br>
-                材質：${comp.material || ""}<br>
-                重量：${comp.weight || ""}
-            </div>
-
-            <div class="use-btn" onclick="event.stopPropagation(); confirmUse('${item.item_id}','${item.position}', ${item.total_left}, '${id}')">
-                確認使用
-            </div>
-        </div>`;
-
-        list.insertAdjacentHTML("beforeend", html);
+        itemList.insertAdjacentHTML("beforeend", html);
     });
 }
 
-/* ----------------------------------
-   展開折疊
------------------------------------ */
-function toggleDetail(id) {
-    const el = document.getElementById("detail_" + id);
-    el.style.display = el.style.display === "block" ? "none" : "block";
+/* ============================================
+   數量控制（不能超過剩餘）
+============================================ */
+function decQty(i) {
+    let n = Number(document.getElementById(`qty_${i}`).innerText);
+    if (n > 1) n--;
+    document.getElementById(`qty_${i}`).innerText = n;
 }
 
-/* ----------------------------------
-   使用數量控制
------------------------------------ */
-function changeQty(id, delta) {
-    const numEl = document.getElementById("qty_" + id);
-    let v = parseInt(numEl.innerText);
-    v = Math.max(1, v + delta);
-    numEl.innerText = v;
+function incQty(i) {
+    let n = Number(document.getElementById(`qty_${i}`).innerText);
+    const left = grouped[i].left;
+    if (n < left) n++;
+    document.getElementById(`qty_${i}`).innerText = n;
 }
 
-/* ----------------------------------
-   確認使用
------------------------------------ */
-async function confirmUse(item_id, position, left, id) {
+/* ============================================
+   Step 4：確認使用（寫入 today_records）
+============================================ */
+async function confirmUse(i) {
 
-    const qty = parseInt(document.getElementById("qty_" + id).innerText);
-    if (qty > left) return alert("超過剩餘數量");
+    const item = grouped[i];
+    const qty = Number(document.getElementById(`qty_${i}`).innerText);
 
-    // 1. 寫入 today_records
+    if (!confirm(`確認使用 ${item.item_id}（${item.position}）？`)) return;
+
+    // 寫入 today_records
     await db.from("today_records").insert({
-        item_id,
-        position,
-        qty,
+        item_id: item.item_id,
+        position: item.position,
+        qty: qty,
+        status: "used",
         usedat: new Date().toISOString()
     });
 
-    // 2. 扣除 planned_items.planned_qty
-    const { data: rows } = await db
-        .from("planned_items")
-        .select("*")
-        .eq("item_id", item_id)
-        .eq("position", position)
-        .eq("status", "received");
+    // 更新剩餘量
+    grouped[i].left -= qty;
 
-    let remain = qty;
+    alert("已更新！");
 
-    for (let r of rows) {
-        if (remain <= 0) break;
-
-        const take = Math.min(r.planned_qty, remain);
-        const newLeft = r.planned_qty - take;
-        remain -= take;
-
-        await db.from("planned_items")
-            .update({ planned_qty: newLeft })
-            .eq("id", r.id);
-
-        if (newLeft === 0) {
-            await db.from("planned_items")
-                .update({ status: "used" })
-                .eq("id", r.id);
-        }
-    }
-
-    alert("已確認使用");
-    loadData();
+    renderList(grouped);
 }
 
-/* ----------------------------------
-   搜尋
------------------------------------ */
-document.getElementById("searchBox").addEventListener("input", e => {
-    const q = e.target.value.toLowerCase();
-    if (!q) return renderList(merged);
+/* ============================================
+   Step 5：搜尋
+============================================ */
+document.getElementById("searchBox").addEventListener("input", (e) => {
 
-    const filtered = merged.filter(m => {
-        const comp = findComponent(m.item_id, m.position);
+    const q = e.target.value.trim().toLowerCase();
+
+    if (!q) {
+        renderList(grouped);
+        return;
+    }
+
+    const result = grouped.filter(item => {
+
+        const comp = components.find(c =>
+            c.item_id === item.item_id && c.position === item.position
+        ) || {};
+
         return (
-            m.item_id.toLowerCase().includes(q) ||
-            m.position.toLowerCase().includes(q) ||
-            (comp.spec || "").toLowerCase().includes(q)
+            item.item_id.toLowerCase().includes(q) ||
+            (comp.spec || "").toLowerCase().includes(q) ||
+            (item.position || "").toLowerCase().includes(q)
         );
     });
 
-    renderList(filtered);
+    renderList(result);
 });
 
+/* ============================================
+   初始化
+============================================ */
 loadData();
+
 </script>
 
 </body>
