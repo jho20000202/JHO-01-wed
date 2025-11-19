@@ -1,297 +1,238 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
 <title>構件使用確認</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
 
-<!-- 全域樣式（深色 UI） -->
 <style>
-body {
-    margin: 0;
-    padding: 0;
-    background: #0f1320;
-    color: #eaeef2;
-    font-family: system-ui, sans-serif;
-}
-.top-bar {
-    background: #11161f;
-    padding: 16px;
-    border-radius: 20px;
-    margin: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.top-bar-title {
-    font-size: 20px;
-    font-weight: 700;
-}
-.top-btn {
-    padding: 6px 16px;
-    background: #1e2737;
-    border-radius: 15px;
-    color: white;
-}
+body { background:#111722; color:#fff; margin:0; }
+
 .screen-card {
-    background: #141821;
-    margin: 16px;
-    padding: 20px;
-    border-radius: 20px;
+    background:#151d2b;
+    padding:18px;
+    margin:14px;
+    border-radius:14px;
 }
-.search-input {
-    width: 100%;
-    padding: 14px;
-    border-radius: 14px;
-    background: #1c2433;
-    color: white;
-    border: none;
+
+/* 搜尋框 */
+.input-bar {
+    width:100%;
+    padding:14px;
+    background:#1c2433;
+    border-radius:10px;
+    border:1px solid #2c3344;
+    color:#fff;
+    margin-top:8px;
 }
-.item-card {
-    background: #1c2433;
-    padding: 16px;
-    border-radius: 20px;
-    margin-bottom: 14px;
+
+/* 字卡 */
+.card {
+    background:#1c2433;
+    padding:16px;
+    border-radius:14px;
+    margin-top:14px;
 }
-.row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+
+/* 橫向排列 */
+.flex-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
 }
+
+/* 數量調整 */
 .qty-box {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+    display:flex;
+    align-items:center;
+    gap:6px;
 }
+
 .qty-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: #11161f;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 20px;
+    width:36px;
+    height:36px;
+    font-size:20px;
+    border-radius:8px;
+    background:#0f1724;
+    border:1px solid #2d3442;
+    color:white;
 }
-.qty-show {
-    padding: 6px 18px;
-    border-radius: 10px;
-    background: #11161f;
-    font-size: 16px;
+
+.qty-num {
+    width:46px;
+    height:36px;
+    background:#0f1724;
+    border-radius:8px;
+    border:1px solid #2d3442;
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
+
+/* 使用按鈕 */
 .use-btn {
-    width: 100%;
-    margin-top: 14px;
-    padding: 14px;
-    background: #2f7dff;
-    border-radius: 14px;
-    text-align: center;
-    font-size: 17px;
-    font-weight: 600;
-    color: white;
-}
-.detail-box {
-    margin-top: 10px;
-    padding: 12px;
-    background: #10151f;
-    border-radius: 14px;
-    font-size: 14px;
-    display: none;
-}
-.toggle-detail {
-    cursor: pointer;
-    font-size: 13px;
-    opacity: 0.7;
-    margin-top: 4px;
+    width:100%;
+    background:#2d82ff;
+    padding:16px;
+    border-radius:12px;
+    text-align:center;
+    margin-top:14px;
+    font-size:18px;
+    font-weight:700;
 }
 </style>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// 初始化 Supabase
-const supabase = window.supabase.createClient(
-    "https://jho20000202.supabase.co",
-    "你的 anon key"
-);
-
-document.addEventListener("DOMContentLoaded", async () => {
-    loadPlannedItems();
-    document.getElementById("search").addEventListener("input", filterList);
-});
-
-/* ------------------------- 讀取資料 --------------------------- */
-async function loadPlannedItems() {
-    const planned = await supabase.from("planned_items").select("*").order("item_id");
-
-    const today = await supabase.from("today_records").select("*");
-
-    const lib = await supabase.from("components_library").select("*");
-
-    render(planned.data, today.data, lib.data);
-}
-
-/* ------------------------- 渲染字卡 --------------------------- */
-function render(planned, today, lib) {
-    const container = document.getElementById("list");
-    container.innerHTML = "";
-
-    // 依 item_id + position 合併
-    let groups = {};
-    for (let p of planned) {
-        const key = `${p.item_id}_${p.position}`;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(p);
-    }
-
-    for (let key in groups) {
-        let group = groups[key];
-        let p = group[0];
-
-        // 今日已使用數量
-        let used = today.filter(t => t.item_id === p.item_id && t.position === p.position)
-                        .reduce((s, t) => s + (t.qty || 0), 0);
-
-        // 最大可使用量
-        let maxUse = p.planned_qty - used;
-        if (maxUse <= 0) continue;  // 已使用完 → 不顯示
-
-        // 找構件詳細資料
-        let info = lib.find(x => x.item_id === p.item_id);
-
-        container.appendChild(makeCard(p, info, maxUse, used));
-    }
-
-    if (!container.innerHTML.trim()) {
-        container.innerHTML = `<div style="text-align:center;padding:40px;color:#999;">目前無任何預計進料構件</div>`;
-    }
-}
-
-/* ------------------------- 字卡 DOM --------------------------- */
-function makeCard(p, info, maxUse, used) {
-    const card = document.createElement("div");
-    card.className = "item-card";
-    card.dataset.search = `${p.item_id} ${info?.spec} ${p.position}`;
-
-    card.innerHTML = `
-        <div class="row">
-            <div>
-                <div style="font-size:18px;font-weight:700;">${p.item_id}</div>
-                <div style="opacity:.7;margin-top:4px;">${p.position}</div>
-            </div>
-            <div style="opacity:.7;">（剩餘 ${maxUse} ）</div>
-        </div>
-
-        <div class="qty-box" style="margin-top:10px;">
-            <div class="qty-btn" onclick="decQty(this, ${maxUse})">−</div>
-            <div class="qty-show">1</div>
-            <div class="qty-btn" onclick="incQty(this, ${maxUse})">+</div>
-        </div>
-
-        <div class="toggle-detail" onclick="toggleDetail(this)">點我展開詳細資訊 ▼</div>
-
-        <div class="detail-box">
-            <div>規格：${info?.spec || "—"}</div>
-            <div>材質：${info?.material || "—"}</div>
-            <div>重量：${info?.weight || "—"}</div>
-        </div>
-
-        <div class="use-btn" onclick="confirmUse('${p.item_id}','${p.position}', this, ${maxUse})">
-            確認使用
-        </div>
-    `;
-
-    return card;
-}
-
-/* --------------------- 數量控制 ------------------------- */
-function decQty(btn, max) {
-    let box = btn.parentElement.querySelector(".qty-show");
-    let v = parseInt(box.innerText);
-    if (v > 1) box.innerText = v - 1;
-}
-function incQty(btn, max) {
-    let box = btn.parentElement.querySelector(".qty-show");
-    let v = parseInt(box.innerText);
-    if (v < max) box.innerText = v + 1;
-}
-
-/* --------------------- 展開詳細資訊 ------------------------- */
-function toggleDetail(el) {
-    const box = el.nextElementSibling;
-    box.style.display = box.style.display === "block" ? "none" : "block";
-}
-
-/* --------------------- 搜尋功能 ------------------------- */
-function filterList() {
-    const kw = document.getElementById("search").value.trim().toLowerCase();
-    const cards = document.querySelectorAll(".item-card");
-
-    cards.forEach(c => {
-        c.style.display = c.dataset.search.toLowerCase().includes(kw) ? "" : "none";
-    });
-}
-
-/* --------------------- 提交 “使用” ------------------------- */
-async function confirmUse(item_id, position, btn, max) {
-    const qty = parseInt(btn.parentElement.querySelector(".qty-show").innerText);
-
-    if (qty > max) {
-        alert("超出可使用數量");
-        return;
-    }
-
-    // 新增 today_records
-    await supabase.from("today_records").insert({
-        item_id,
-        position,
-        qty,
-        status: "used",
-        usedat: new Date().toISOString()
-    });
-
-    // 若已使用完 → 更新 planned_items.status = done
-    const { data: today } = await supabase
-        .from("today_records")
-        .select("*")
-        .eq("item_id", item_id)
-        .eq("position", position);
-
-    const used = today.reduce((s, t) => s + (t.qty || 0), 0);
-
-    const { data: planned } = await supabase
-        .from("planned_items")
-        .select("*")
-        .eq("item_id", item_id)
-        .eq("position", position);
-
-    if (used >= planned[0].planned_qty) {
-        await supabase
-            .from("planned_items")
-            .update({ status: "done" })
-            .eq("item_id", item_id)
-            .eq("position", position);
-    }
-
-    alert("已記錄使用！");
-    location.reload();
-}
-</script>
-
 </head>
+
 <body>
 
 <div class="top-bar">
     <div class="top-bar-title">構件使用確認</div>
-    <a href="index.html" class="top-btn">返回主畫面</a>
+    <div class="top-bar-actions">
+        <a href="index.html" class="top-btn">返回主畫面</a>
+    </div>
 </div>
 
 <div class="screen-card">
-    <input type="text" id="search" class="search-input" placeholder="搜尋：構件編號 / 規格 / 位置">
+
+    <div class="section-title">搜尋</div>
+    <input id="searchBox" class="input-bar" placeholder="搜尋：構件編號 / 規格 / 位置">
+
 </div>
 
-<div id="list" style="padding:16px;"></div>
+<div class="screen-card" id="cardContainer"></div>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allPlanned = [];
+let grouped = {};
+let searchKeyword = "";
+
+async function loadData() {
+    const { data, error } = await db
+        .from("planned_items")
+        .select("item_id, position, planned_qty, status")
+        .eq("status", "pending");    // ❗只顯示未使用的構件
+
+    if (error) { console.log(error); return; }
+    allPlanned = data;
+
+    groupItems();
+    render();
+}
+
+function groupItems() {
+    grouped = {};
+
+    allPlanned.forEach(p => {
+        const key = `${p.item_id}__${p.position}`;
+        if (!grouped[key]) {
+            grouped[key] = {
+                item_id: p.item_id,
+                position: p.position,
+                qty: p.planned_qty,
+                used: 1
+            };
+        } else {
+            grouped[key].qty += p.planned_qty;
+        }
+    });
+}
+
+function render() {
+    const container = document.getElementById("cardContainer");
+    container.innerHTML = "";
+
+    let list = Object.values(grouped);
+
+    if (searchKeyword) {
+        const q = searchKeyword.toLowerCase();
+        list = list.filter(x =>
+            x.item_id.toLowerCase().includes(q) ||
+            x.position.toLowerCase().includes(q)
+        );
+    }
+
+    if (!list.length) {
+        container.innerHTML =
+            `<div style="text-align:center;color:#aaa;padding:20px;">目前無任何預計進料構件</div>`;
+        return;
+    }
+
+    list.forEach((c, index) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+            <div class="flex-row">
+                <div style="font-size:20px;font-weight:700">${c.item_id}</div>
+                <div>${c.position}</div>
+            </div>
+
+            <div class="flex-row" style="margin-top:12px;">
+                <div class="qty-box">
+                    <button class="qty-btn" onclick="dec(${index})">-</button>
+                    <div class="qty-num" id="num_${index}">${c.used}</div>
+                    <button class="qty-btn" onclick="inc(${index})">+</button>
+                </div>
+                <div style="color:#aaa">( 剩餘 ${c.qty - c.used} )</div>
+            </div>
+
+            <div class="use-btn" onclick="confirmUse(${index})">
+                確認使用
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function inc(i) {
+    const item = Object.values(grouped)[i];
+    if (item.used < item.qty) {
+        item.used++;
+        document.getElementById(`num_${i}`).innerText = item.used;
+    }
+}
+
+function dec(i) {
+    const item = Object.values(grouped)[i];
+    if (item.used > 1) {
+        item.used--;
+        document.getElementById(`num_${i}`).innerText = item.used;
+    }
+}
+
+async function confirmUse(i) {
+    const item = Object.values(grouped)[i];
+
+    if (!confirm(`確認使用 ${item.item_id}（位置：${item.position}）\n使用數量：${item.used}`))
+        return;
+
+    await db.from("planned_items")
+        .update({ status: "used" })
+        .eq("item_id", item.item_id)
+        .eq("position", item.position)
+        .limit(item.used);
+
+    alert("已確認使用");
+    loadData();
+}
+
+document.getElementById("searchBox").addEventListener("input", (e) => {
+    searchKeyword = e.target.value.trim();
+    render();
+});
+
+loadData();
+</script>
 
 </body>
 </html>
-
