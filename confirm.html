@@ -7,98 +7,77 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* 字卡外框 */
-.item-card {
-    background: #1c2433;
-    color: #fff;
+/* 頂部 */
+.top-bar {
+    background: #11161f;
     padding: 16px;
-    margin: 14px 0;
-    border-radius: 14px;
-    cursor: pointer;
-}
-
-/* 上層一條：編號 + 位置 + 數量控制 */
-.card-top {
+    border-radius: 20px;
+    margin: 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
+.top-bar-title { font-size: 20px; color:#fff; font-weight:700; }
+.top-btn { padding:6px 16px; background:#1e2737; color:#fff; border-radius:15px; }
 
-/* 左側：構件編號 */
-.item-id {
-    font-size: 18px;
-    font-weight: 700;
+/* 搜尋列 */
+.input-bar { width:100%; padding:14px; background:#1c2433; border-radius:14px; color:#fff; }
+
+/* 卡片 */
+.item-card {
+    background:#1c2433;
+    padding:16px;
+    margin:12px;
+    border-radius:16px;
+    color:#fff;
 }
+.item-header { display:flex; justify-content:space-between; align-items:center; }
 
-/* 中間：位置 */
-.item-pos {
-    font-size: 14px;
-    opacity: 0.85;
-    margin-left: 10px;
-}
-
-/* 使用數量 */
-.qty-box {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.qty-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: #0f141d;
+/* 一行資訊 */
+.row-line {
     display:flex;
-    justify-content:center;
     align-items:center;
-    font-size: 20px;
+    gap:12px;
+    margin-top:10px;
+    flex-wrap:nowrap;
+    white-space:nowrap;
+}
+.item-id { font-size:18px; font-weight:700; }
+
+/* 數量控制 */
+.qty-box {
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.qty-btn {
+    width:32px; height:32px;
+    display:flex; justify-content:center; align-items:center;
+    background:#1e2737;
+    border-radius:8px;
+    font-size:18px;
+}
+.qty-display {
+    min-width:28px;
+    text-align:center;
 }
 
-/* 數量顯示 */
-.qty-num {
-    width: 40px;
-    text-align: center;
-    font-size: 16px;
+/* 小按鈕 */
+.use-btn {
+    padding:10px 16px;
+    background:#2f7dff;
+    color:#fff;
+    border-radius:10px;
+    cursor:pointer;
 }
 
-/* 剩餘量 */
-.remain-text {
-    font-size: 13px;
-    opacity: .7;
-    margin-left: 6px;
-}
-
-/* 展開內容 */
-.details {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #2a3142;
-    display: none;
-}
-
-.detail-row {
-    font-size: 14px;
-    color: #bbb;
-    margin: 6px 0;
-}
-
-/* 按鈕 */
-.primary-btn {
-    background: #2d7dff;
-    padding: 14px;
-    border-radius: 10px;
-    text-align: center;
-    margin-top: 12px;
-    font-weight: 700;
-}
-
-/* 搜尋框 */
-.input-bar {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
+/* 展開面板 */
+.detail-panel {
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid #2a3142;
+    display:none;
+    color:#bbb;
 }
 
 /* 回到頂端 */
@@ -111,221 +90,199 @@
     border-radius: 50%;
     background: rgba(255,255,255,0.15);
     backdrop-filter: blur(6px);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    cursor:pointer;
-    opacity:0;
-    pointer-events:none;
-    transition:opacity 0.3s ease, transform 0.25s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s, transform .25s, bottom .25s;
 }
-
-#backTopBtn.visible {
-    opacity:1;
-    pointer-events:auto;
-}
-
-#backTopBtn svg { width: 22px; height: 22px; fill:#fff; }
+#backTopBtn.visible { opacity:1; pointer-events:auto; }
+#backTopBtn svg { width:22px; height:22px; fill:#fff; }
 </style>
 </head>
 
 <body>
 
-<!-- 頂部 Bar -->
 <div class="top-bar">
     <div class="top-bar-title">構件使用確認</div>
-    <div class="top-bar-actions">
-        <a href="index.html" class="top-btn">返回主畫面</a>
-    </div>
+    <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-<!-- 搜尋 -->
 <div class="screen-card">
-    <div class="section-title">搜尋構件</div>
-    <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 規格 / 位置">
+    <div class="section-title">搜尋</div>
+    <input id="searchBox" class="input-bar" placeholder="搜尋：構件編號 / 規格 / 位置">
 </div>
 
-<!-- 清單 -->
-<div class="screen-card">
-    <div id="itemList"></div>
-</div>
+<div id="itemList"></div>
 
-<!-- 回到頂端 -->
 <div id="backTopBtn">
     <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"></path></svg>
 </div>
 
-<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 /* Supabase 初始化 */
-const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
-
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = supabase.createClient(
+  "https://udilhhmpdmnrkfgkowqo.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8"
+);
 
 /* 全域資料 */
 let planned = [];
-let library = [];
-let searchKeyword = "";
+let components = [];
+let filtered = [];
 
-/* 讀資料：只抓「預計進料登記」過的構件 */
+/* DOM */
+const itemList = document.getElementById("itemList");
+
+/* 載入資料 */
 async function loadData() {
 
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
-        .order("date", { ascending: true });
+        .eq("status", "received")
+        .gt("planned_qty", 0);
 
-    const { data: lib } = await db
+    planned = plan || [];
+
+    const { data: comp } = await db
         .from("components_library")
         .select("*");
 
-    planned = plan || [];
-    library = lib || [];
+    components = comp || [];
 
-    renderList();
-}
-
-/* 渲染主清單 */
-function renderList() {
-    const box = document.getElementById("itemList");
-    box.innerHTML = "";
-
-    let rows = planned.filter(p => p.status !== "used");
-
-    if (searchKeyword) {
-        const q = searchKeyword.toLowerCase();
-        rows = rows.filter(p => {
-            let c = library.find(x => x.item_id === p.item_id) || {};
-            return (
-                p.item_id.toLowerCase().includes(q) ||
-                (c.position || "").toLowerCase().includes(q) ||
-                (c.spec || "").toLowerCase().includes(q)
-            );
-        });
-    }
-
-    rows.forEach(p => {
-        let comp = library.find(x => x.item_id === p.item_id) || {};
-        let remain = p.planned_qty ?? 1;
-
-        const id = p.item_id + "_" + p.date;
-        const detailsId = "details_" + id;
-        const qtyId = "qty_" + id;
-
-        const card = `
-        <div class="item-card">
-
-            <!-- 上排一行 -->
-            <div class="card-top" onclick="toggleDetails('${detailsId}')">
-
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div class="item-id">${p.item_id}</div>
-                    <div class="item-pos">${comp.position || ""}</div>
-                </div>
-
-                <div class="qty-box" onclick="event.stopPropagation();">
-                    <div class="qty-btn" onclick="decQty('${qtyId}', ${remain})">−</div>
-                    <div id="${qtyId}" class="qty-num">1</div>
-                    <div class="qty-btn" onclick="incQty('${qtyId}', ${remain})">＋</div>
-                    <span class="remain-text">（剩餘 ${remain}）</span>
-                </div>
-            </div>
-
-            <!-- 確認按鈕 -->
-            <div class="primary-btn" onclick="confirmUse('${p.item_id}', '${p.date}', '${qtyId}', ${remain})">
-                確認使用
-            </div>
-
-            <!-- 展開細節 -->
-            <div id="${detailsId}" class="details">
-                <div class="detail-row">規格：${comp.spec || ""}</div>
-                <div class="detail-row">材質：${comp.material || ""}</div>
-                <div class="detail-row">重量：${comp.weight || ""}</div>
-            </div>
-
-        </div>`;
-        box.insertAdjacentHTML("beforeend", card);
-    });
-
-}
-
-/* 展開/收合 */
-function toggleDetails(id) {
-    let el = document.getElementById(id);
-    el.style.display = (el.style.display === "block" ? "none" : "block");
-}
-
-/* 數量控制 */
-function decQty(id, max) {
-    let el = document.getElementById(id);
-    let v = parseInt(el.textContent);
-    if (v > 1) el.textContent = v - 1;
-}
-
-function incQty(id, max) {
-    let el = document.getElementById(id);
-    let v = parseInt(el.textContent);
-    if (v < max) el.textContent = v + 1;
-}
-
-/* 確認使用 */
-async function confirmUse(item_id, date, qtyId, remainMax) {
-
-    const usedQty = parseInt(document.getElementById(qtyId).textContent);
-
-    if (!confirm(`確認使用 ${item_id}（${usedQty}）？`)) return;
-
-    /* 1. 寫入 today_records */
-    await db.from("today_records").insert({
-        item_id,
-        used_qty: usedQty,
-        used_at: new Date().toISOString()
-    });
-
-    /* 2. 更新 planned_items → 減去剩餘量 */
-    const left = remainMax - usedQty;
-
-    if (left <= 0) {
-        await db.from("planned_items")
-            .update({ status: "used", planned_qty: 0 })
-            .eq("item_id", item_id)
-            .eq("date", date);
-    } else {
-        await db.from("planned_items")
-            .update({ planned_qty: left })
-            .eq("item_id", item_id)
-            .eq("date", date);
-    }
-
-    alert("已完成使用紀錄！");
-    await loadData();
+    renderList(planned);
 }
 
 /* 搜尋 */
 document.getElementById("searchBox").addEventListener("input", e => {
-    searchKeyword = e.target.value.trim();
-    renderList();
+    const q = e.target.value.trim().toLowerCase();
+
+    if (!q) {
+        renderList(planned);
+        return;
+    }
+
+    const result = planned.filter(p => {
+        const comp = components.find(c => c.item_id === p.item_id);
+        return (
+            p.item_id.toLowerCase().includes(q) ||
+            (comp?.spec || "").toLowerCase().includes(q) ||
+            (comp?.position || "").toLowerCase().includes(q)
+        );
+    });
+
+    renderList(result);
 });
 
-/* 回頂端 */
+/* 產生 UI */
+function renderList(list) {
+    itemList.innerHTML = "";
+
+    list.forEach(p => {
+
+        const comp = components.find(c => c.item_id === p.item_id) || {};
+        const cardId = "detail_" + p.id;
+
+        const html = `
+            <div class="item-card">
+
+                <div class="item-header" onclick="toggleDetail('${cardId}')">
+                    <div class="item-id">${p.item_id}</div>
+                    <div style="opacity:.8">${comp.position || ""}</div>
+                </div>
+
+                <!-- 一行排版 -->
+                <div class="row-line">
+
+                    <div class="qty-box">
+                        <div class="qty-btn" onclick="decQty('${p.id}')">−</div>
+                        <div id="qty_${p.id}" class="qty-display">1</div>
+                        <div class="qty-btn" onclick="incQty('${p.id}', ${p.planned_qty})">＋</div>
+                    </div>
+
+                    <div style="font-size:14px; opacity:.7;">( 剩餘 ${p.planned_qty} )</div>
+
+                    <div class="use-btn" onclick="confirmUse('${p.id}')">
+                        確認使用
+                    </div>
+                </div>
+
+                <!-- 展開資訊 -->
+                <div id="${cardId}" class="detail-panel">
+                    規格：${comp.spec || ""}<br>
+                    材質：${comp.material || ""}<br>
+                    重量：${comp.weight || ""}<br>
+                </div>
+            </div>
+        `;
+
+        itemList.insertAdjacentHTML("beforeend", html);
+    });
+}
+
+/* 展開/收合 */
+function toggleDetail(id) {
+    const el = document.getElementById(id);
+    el.style.display = (el.style.display === "block") ? "none" : "block";
+}
+
+/* 數量控制 */
+function decQty(id) {
+    let el = document.getElementById("qty_" + id);
+    let v = Number(el.textContent);
+    if (v > 1) el.textContent = v - 1;
+}
+
+function incQty(id, max) {
+    let el = document.getElementById("qty_" + id);
+    let v = Number(el.textContent);
+    if (v < max) el.textContent = v + 1;
+}
+
+/* 確認使用 */
+async function confirmUse(id) {
+
+    const qty = Number(document.getElementById("qty_" + id).textContent);
+
+    const item = planned.find(p => p.id == id);
+    if (!item) return;
+
+    // 寫入 today_records
+    await db.from("today_records").insert({
+        item_id: item.item_id,
+        qty: qty,
+        used_at: new Date().toISOString()
+    });
+
+    // 更新 planned_items 剩餘量
+    const remain = item.planned_qty - qty;
+
+    await db.from("planned_items")
+        .update({
+            planned_qty: remain,
+            status: remain > 0 ? "received" : "used"
+        })
+        .eq("id", id);
+
+    alert("已登記使用");
+
+    loadData();
+}
+
+/* 回到頂端 */
 const backTopBtn = document.getElementById("backTopBtn");
-
 window.addEventListener("scroll", () => {
-    if (window.scrollY > 300) 
-        backTopBtn.classList.add("visible");
-    else
-        backTopBtn.classList.remove("visible");
+    if (window.scrollY > 300) backTopBtn.classList.add("visible");
+    else backTopBtn.classList.remove("visible");
 });
+backTopBtn.onclick = () => window.scrollTo({ top:0, behavior:"smooth" });
 
-backTopBtn.addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-});
-
-/* 初始化 */
+/* 啟動 */
 loadData();
 </script>
 
