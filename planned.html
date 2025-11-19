@@ -7,101 +7,126 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* 預計進料卡片樣式 */
-.plan-card {
-    background:#1c2433;
-    padding:16px;
-    margin:10px 0;
-    border-radius:14px;
-    color:#fff;
+/* ===========================
+   深色日曆彈窗 Dark Calendar
+=========================== */
+#calendarOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
 }
 
-/* 卡片頭部 */
-.plan-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+#calendarBox {
+    background: #1c2433;
+    padding: 18px;
+    border-radius: 18px;
+    width: 88%;
+    max-width: 350px;
+    color: #fff;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    animation: fadeIn 0.25s ease-out;
 }
 
-/* 位置選單 */
-.position-select {
-    width:100%;
-    padding:12px;
-    border-radius:14px;
-    background:#1e2737;
-    color:#fff;
-    margin-top:10px;
-    font-size:15px;
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
 }
 
-/* 按鈕 */
-.delete-btn {
-    background:#ff4b4b;
-    padding:12px 18px;
-    border-radius:14px;
-    font-size:15px;
-}
-.receive-btn {
-    background:#2f7dff;
-    padding:12px 18px;
-    border-radius:14px;
-    margin-left:10px;
-    font-size:15px;
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    margin-bottom: 12px;
 }
 
-/* Loading 圈圈 */
-#loadingSpinner {
-    display:none;
-    text-align:center;
-    padding:16px;
-}
-#loadingSpinner svg {
-    width:28px;
-    height:28px;
-    animation: spin 0.9s linear infinite;
-}
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+.cal-btn {
+    background: #2f7dff;
+    border-radius: 10px;
+    padding: 6px 10px;
 }
 
-/* 已載入全部 */
-#loadMessage {
-    display:none;
-    color:#aaa;
-    text-align:center;
-    padding:16px;
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.day-name {
+    text-align: center;
+    color: #aaa;
+    font-size: 13px;
+}
+
+.day-cell {
+    text-align: center;
+    padding: 10px 0;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #141a28;
+}
+
+.day-cell:hover {
+    background: #2f7dff;
+}
+
+.day-disabled {
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+#openCalendarBtn {
+    cursor: pointer;
 }
 </style>
-</head>
 
+</head>
 <body>
 
-<!-- 頂部 -->
+<!-- ======================
+     頂部
+====================== -->
 <div class="top-bar">
     <div class="top-bar-title">預計進料登記</div>
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-<!-- 輸入區 -->
+
+<!-- ======================
+     輸入區
+====================== -->
 <div class="screen-card">
 
     <div class="section-title">構件編號</div>
     <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
 
     <div class="section-title">預計到貨日期</div>
-    <input id="dateInput" type="date" class="input-bar">
+
+    <!-- ⬇⬇⬇ 點擊後彈出日曆 -->
+    <input id="dateInput"
+           class="input-bar"
+           placeholder="點擊選擇日期"
+           readonly
+           style="cursor:pointer;background:#1c2433;"
+    >
 
     <button id="submitBtn" class="primary-btn full" style="margin-top:12px;">
         送出
     </button>
 </div>
 
-<!-- 清單區 -->
+
+<!-- ======================
+     預計進料清單
+====================== -->
 <div class="screen-card">
     <div class="section-title">目前預計進料清單</div>
 
-    <!-- 動態插入 -->
     <div id="planList"></div>
 
     <div id="loadingSpinner">
@@ -113,11 +138,121 @@
     <div id="loadMessage">已載入全部資料</div>
 </div>
 
-<!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<!-- 主邏輯 -->
+<!-- ======================
+     深色日曆彈窗
+====================== -->
+<div id="calendarOverlay">
+
+    <div id="calendarBox">
+        
+        <div class="calendar-header">
+            <div id="prevMonth" class="cal-btn">〈</div>
+            <div id="calTitle">2025 / 01</div>
+            <div id="nextMonth" class="cal-btn">〉</div>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid">
+            <!-- 會由 JS 自動插入 -->
+        </div>
+
+        <button id="closeCalendar" class="danger-btn full" style="margin-top:15px;">關閉</button>
+
+    </div>
+
+</div>
+
+
+<!-- ======================
+     Supabase + 邏輯
+====================== -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="planned.js"></script>
+
+<script>
+/* =========================
+   深色日曆：初始化
+========================= */
+const dateInput = document.getElementById("dateInput");
+const overlay = document.getElementById("calendarOverlay");
+const grid = document.getElementById("calendarGrid");
+const calTitle = document.getElementById("calTitle");
+
+let current = new Date();
+current.setDate(1);
+
+/* === 打開日曆 === */
+dateInput.addEventListener("click", () => {
+    overlay.style.display = "flex";
+    renderCalendar();
+});
+
+/* === 關閉日曆 === */
+document.getElementById("closeCalendar").addEventListener("click", () => {
+    overlay.style.display = "none";
+});
+
+
+/* =========================
+   渲染日曆
+========================= */
+function renderCalendar() {
+    grid.innerHTML = "";
+
+    const year = current.getFullYear();
+    const month = current.getMonth();
+
+    calTitle.textContent = `${year} / ${String(month+1).padStart(2,"0")}`;
+
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month+1, 0);
+
+    const firstDay = first.getDay();
+    const days = last.getDate();
+
+    // 星期抬頭
+    const names = ["日","一","二","三","四","五","六"];
+    names.forEach(n => {
+        const e = document.createElement("div");
+        e.className = "day-name";
+        e.textContent = n;
+        grid.appendChild(e);
+    });
+
+    // 前空白
+    for (let i=0; i<firstDay; i++) {
+        const blank = document.createElement("div");
+        blank.className = "day-cell day-disabled";
+        grid.appendChild(blank);
+    }
+
+    // 日期
+    for (let d=1; d<=days; d++) {
+        const cell = document.createElement("div");
+        cell.className = "day-cell";
+        cell.textContent = d;
+
+        cell.addEventListener("click", () => {
+            const mm = String(month+1).padStart(2,"0");
+            const dd = String(d).padStart(2,"0");
+            dateInput.value = `${year}-${mm}-${dd}`;
+            overlay.style.display = "none";
+        });
+
+        grid.appendChild(cell);
+    }
+}
+
+/* 月份切換 */
+document.getElementById("prevMonth").addEventListener("click", () => {
+    current.setMonth(current.getMonth() - 1);
+    renderCalendar();
+});
+document.getElementById("nextMonth").addEventListener("click", () => {
+    current.setMonth(current.getMonth() + 1);
+    renderCalendar();
+});
+</script>
 
 </body>
 </html>
