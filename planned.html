@@ -7,123 +7,158 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* ===========================
-   深色日曆彈窗 Dark Calendar
-=========================== */
+/* 卡片樣式（沿用你的深色風格） */
+.plan-card {
+    background:#1c2433;
+    padding:16px;
+    margin:10px 0;
+    border-radius:14px;
+    color:#fff;
+}
+
+.plan-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.position-select {
+    width:100%;
+    padding:12px;
+    border-radius:14px;
+    background:#1e2737;
+    color:#fff;
+    margin-top:10px;
+    font-size:15px;
+    border:1px solid #2a2f3a;
+}
+
+/* Loading */
+#loadingSpinner {
+    display:none;
+    text-align:center;
+    padding:16px;
+}
+#loadingSpinner svg {
+    width:28px;
+    height:28px;
+    animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+#loadMessage {
+    display:none;
+    color:#aaa;
+    text-align:center;
+    padding:16px;
+}
+
+/* ===== 深色小型彈出日曆 ===== */
 #calendarOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.55);
     display: none;
-    align-items: center;
-    justify-content: center;
     z-index: 2000;
 }
 
-#calendarBox {
-    background: #1c2433;
-    padding: 18px;
-    border-radius: 18px;
-    width: 88%;
-    max-width: 350px;
-    color: #fff;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-    animation: fadeIn 0.25s ease-out;
+#calendarPanel {
+    position:absolute;
+    background:#1c2433;
+    padding:14px;
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.7);
+    width:280px;
+    color:#fff;
+    font-size:14px;
+    animation: calFadeIn .18s ease-out;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.92); }
-    to   { opacity: 1; transform: scale(1); }
+@keyframes calFadeIn {
+    from { opacity:0; transform:scale(.95); }
+    to   { opacity:1; transform:scale(1); }
 }
 
 .calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 18px;
-    margin-bottom: 12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
 }
 
-.cal-btn {
-    background: #2f7dff;
-    border-radius: 10px;
-    padding: 6px 10px;
+.calendar-header-title {
+    font-weight:600;
+}
+
+.cal-nav-btn {
+    background:#2f7dff;
+    border-radius:999px;
+    padding:4px 10px;
+    font-size:13px;
 }
 
 .calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-    margin-top: 10px;
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:6px;
 }
 
 .day-name {
-    text-align: center;
-    color: #aaa;
-    font-size: 13px;
+    text-align:center;
+    color:#9aa0a6;
+    font-size:12px;
 }
 
 .day-cell {
-    text-align: center;
-    padding: 10px 0;
-    border-radius: 10px;
-    cursor: pointer;
-    background: #141a28;
+    text-align:center;
+    padding:7px 0;
+    border-radius:10px;
+    background:#141a28;
+    cursor:pointer;
+    font-size:13px;
 }
 
 .day-cell:hover {
-    background: #2f7dff;
+    background:#2f7dff;
 }
 
 .day-disabled {
-    opacity: 0.2;
-    pointer-events: none;
-}
-
-#openCalendarBtn {
-    cursor: pointer;
+    opacity:.15;
+    pointer-events:none;
 }
 </style>
-
 </head>
+
 <body>
 
-<!-- ======================
-     頂部
-====================== -->
+<!-- 頂部列 -->
 <div class="top-bar">
     <div class="top-bar-title">預計進料登記</div>
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-
-<!-- ======================
-     輸入區
-====================== -->
+<!-- 輸入區 -->
 <div class="screen-card">
 
     <div class="section-title">構件編號</div>
     <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
 
     <div class="section-title">預計到貨日期</div>
-
-    <!-- ⬇⬇⬇ 點擊後彈出日曆 -->
+    <!-- 用文字輸入框 + 自製日曆 -->
     <input id="dateInput"
            class="input-bar"
            placeholder="點擊選擇日期"
            readonly
-           style="cursor:pointer;background:#1c2433;"
-    >
+           style="cursor:pointer;background:#1c2433;">
 
     <button id="submitBtn" class="primary-btn full" style="margin-top:12px;">
         送出
     </button>
 </div>
 
-
-<!-- ======================
-     預計進料清單
-====================== -->
+<!-- 清單區 -->
 <div class="screen-card">
     <div class="section-title">目前預計進料清單</div>
 
@@ -138,120 +173,388 @@
     <div id="loadMessage">已載入全部資料</div>
 </div>
 
-
-<!-- ======================
-     深色日曆彈窗
-====================== -->
+<!-- 小型深色日曆（覆蓋層 + 面板） -->
 <div id="calendarOverlay">
-
-    <div id="calendarBox">
-        
+    <div id="calendarPanel">
         <div class="calendar-header">
-            <div id="prevMonth" class="cal-btn">〈</div>
-            <div id="calTitle">2025 / 01</div>
-            <div id="nextMonth" class="cal-btn">〉</div>
+            <button id="calPrev" class="cal-nav-btn">〈</button>
+            <div id="calTitle" class="calendar-header-title">2025 / 01</div>
+            <button id="calNext" class="cal-nav-btn">〉</button>
         </div>
-
-        <div class="calendar-grid" id="calendarGrid">
-            <!-- 會由 JS 自動插入 -->
-        </div>
-
-        <button id="closeCalendar" class="danger-btn full" style="margin-top:15px;">關閉</button>
-
+        <div id="calendarGrid" class="calendar-grid"></div>
     </div>
-
 </div>
 
-
-<!-- ======================
-     Supabase + 邏輯
-====================== -->
+<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="planned.js"></script>
 
 <script>
-/* =========================
-   深色日曆：初始化
-========================= */
-const dateInput = document.getElementById("dateInput");
-const overlay = document.getElementById("calendarOverlay");
-const grid = document.getElementById("calendarGrid");
-const calTitle = document.getElementById("calTitle");
+/* ==========================================
+   🔧 Supabase 初始化
+========================================== */
+const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
-let current = new Date();
-current.setDate(1);
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* === 打開日曆 === */
-dateInput.addEventListener("click", () => {
-    overlay.style.display = "flex";
+/* ==========================================
+   📌 全域資料
+========================================== */
+let plans = [];        // planned_items（未收貨）
+let components = [];   // components_library
+let usedPositions = {}; // { item_id: Set(positions) }
+
+const planList       = document.getElementById("planList");
+const loadingSpinner = document.getElementById("loadingSpinner");
+const loadMessage    = document.getElementById("loadMessage");
+
+/* ==========================================
+   深色小日曆：UI 控制
+========================================== */
+const dateInput   = document.getElementById("dateInput");
+const calOverlay  = document.getElementById("calendarOverlay");
+const calPanel    = document.getElementById("calendarPanel");
+const calGrid     = document.getElementById("calendarGrid");
+const calTitle    = document.getElementById("calTitle");
+const calPrevBtn  = document.getElementById("calPrev");
+const calNextBtn  = document.getElementById("calNext");
+
+let calCurrent = new Date();
+calCurrent.setDate(1);
+
+/* 打開日曆（定位在輸入框下方） */
+function openCalendar() {
+    const rect = dateInput.getBoundingClientRect();
+    calOverlay.style.display = "block";
+
+    const panelWidth = 280;
+    let left = rect.left + window.scrollX;
+    const top  = rect.bottom + window.scrollY + 6;
+
+    if (left + panelWidth + 8 > window.innerWidth + window.scrollX) {
+        left = window.innerWidth + window.scrollX - panelWidth - 8;
+    }
+
+    calPanel.style.top  = top + "px";
+    calPanel.style.left = left + "px";
+
+    renderCalendar();
+}
+
+/* 關閉日曆 */
+function closeCalendar() {
+    calOverlay.style.display = "none";
+}
+
+/* 點輸入框開啟 */
+dateInput.addEventListener("click", openCalendar);
+
+/* 點覆蓋層空白關閉（避免點到 panel） */
+calOverlay.addEventListener("click", (e)=>{
+    if (e.target === calOverlay) closeCalendar();
+});
+
+/* 月份切換 */
+calPrevBtn.addEventListener("click", ()=>{
+    calCurrent.setMonth(calCurrent.getMonth() - 1);
+    renderCalendar();
+});
+calNextBtn.addEventListener("click", ()=>{
+    calCurrent.setMonth(calCurrent.getMonth() + 1);
     renderCalendar();
 });
 
-/* === 關閉日曆 === */
-document.getElementById("closeCalendar").addEventListener("click", () => {
-    overlay.style.display = "none";
-});
-
-
-/* =========================
-   渲染日曆
-========================= */
+/* 畫出整個月份 */
 function renderCalendar() {
-    grid.innerHTML = "";
+    calGrid.innerHTML = "";
 
-    const year = current.getFullYear();
-    const month = current.getMonth();
+    const year  = calCurrent.getFullYear();
+    const month = calCurrent.getMonth();
 
     calTitle.textContent = `${year} / ${String(month+1).padStart(2,"0")}`;
 
     const first = new Date(year, month, 1);
-    const last = new Date(year, month+1, 0);
+    const last  = new Date(year, month+1, 0);
 
-    const firstDay = first.getDay();
-    const days = last.getDate();
+    const firstWeekDay = first.getDay();
+    const daysInMonth  = last.getDate();
 
-    // 星期抬頭
     const names = ["日","一","二","三","四","五","六"];
-    names.forEach(n => {
+    names.forEach(n=>{
         const e = document.createElement("div");
         e.className = "day-name";
         e.textContent = n;
-        grid.appendChild(e);
+        calGrid.appendChild(e);
     });
 
-    // 前空白
-    for (let i=0; i<firstDay; i++) {
+    for (let i=0;i<firstWeekDay;i++) {
         const blank = document.createElement("div");
         blank.className = "day-cell day-disabled";
-        grid.appendChild(blank);
+        calGrid.appendChild(blank);
     }
 
-    // 日期
-    for (let d=1; d<=days; d++) {
+    for (let d=1; d<=daysInMonth; d++) {
         const cell = document.createElement("div");
         cell.className = "day-cell";
         cell.textContent = d;
 
-        cell.addEventListener("click", () => {
+        cell.addEventListener("click", ()=>{
             const mm = String(month+1).padStart(2,"0");
             const dd = String(d).padStart(2,"0");
             dateInput.value = `${year}-${mm}-${dd}`;
-            overlay.style.display = "none";
+            closeCalendar();
         });
 
-        grid.appendChild(cell);
+        calGrid.appendChild(cell);
     }
 }
 
-/* 月份切換 */
-document.getElementById("prevMonth").addEventListener("click", () => {
-    current.setMonth(current.getMonth() - 1);
-    renderCalendar();
+/* ==========================================
+   Step 1：載入 DB 資料
+========================================== */
+async function loadMetaData() {
+    // 尚未收貨的預計進料
+    const { data: plan } = await db
+        .from("planned_items")
+        .select("*")
+        .neq("status", "received")
+        .order("planned_date", { ascending: true });
+
+    plans = plan || [];
+
+    // 構件庫
+    const { data: comp } = await db
+        .from("components_library")
+        .select("*");
+
+    components = comp || [];
+
+    // today_records：紀錄已經收貨的 position
+    const { data: today } = await db
+        .from("today_records")
+        .select("item_id, position");
+
+    usedPositions = {};
+    (today || []).forEach(r=>{
+        if (!r.item_id || !r.position) return;
+        if (!usedPositions[r.item_id]) usedPositions[r.item_id] = new Set();
+        usedPositions[r.item_id].add(r.position);
+    });
+}
+
+/* ==========================================
+   Step 2：渲染清單（一次全部）
+========================================== */
+function renderPlanList() {
+    planList.innerHTML = "";
+    loadMessage.style.display = plans.length ? "none" : "block";
+
+    // 依日期分組
+    let lastDate = null;
+
+    plans.forEach(p=>{
+        const dateText = p.planned_date || "";
+
+        if (dateText !== lastDate) {
+            const header = document.createElement("div");
+            header.className = "section-title";
+            header.style.marginTop = "14px";
+            header.textContent = dateText || "未填日期";
+            planList.appendChild(header);
+            lastDate = dateText;
+        }
+
+        const card = document.createElement("div");
+        card.className = "plan-card";
+        card.id = "card_" + p.id;
+
+        const compList = components.filter(c=> c.item_id === p.item_id);
+        const allPositions = Array.from(new Set(
+            compList.map(c=> c.position).filter(Boolean)
+        ));
+
+        const usedSet = usedPositions[p.item_id] || new Set();
+        const availablePositions = allPositions.filter(pos=> !usedSet.has(pos));
+
+        const headerRow = document.createElement("div");
+        headerRow.className = "plan-header";
+
+        const title = document.createElement("div");
+        title.style.fontSize = "18px";
+        title.style.fontWeight = "700";
+        title.textContent = p.item_id;
+
+        const dateLabel = document.createElement("div");
+        dateLabel.style.color = "#bbb";
+        dateLabel.textContent = dateText;
+
+        headerRow.appendChild(title);
+        headerRow.appendChild(dateLabel);
+        card.appendChild(headerRow);
+
+        // 位置選單或提示
+        let selectEl = null;
+        if (availablePositions.length > 0) {
+            selectEl = document.createElement("select");
+            selectEl.className = "position-select";
+            selectEl.id = "pos_" + p.id;
+
+            const opt0 = document.createElement("option");
+            opt0.value = "";
+            opt0.textContent = "選擇位置";
+            selectEl.appendChild(opt0);
+
+            availablePositions.forEach(pos=>{
+                const opt = document.createElement("option");
+                opt.value = pos;
+                opt.textContent = pos;
+                selectEl.appendChild(opt);
+            });
+
+            card.appendChild(selectEl);
+        } else {
+            const tip = document.createElement("div");
+            tip.style.color = "#aaa";
+            tip.style.fontSize = "13px";
+            tip.style.marginTop = "10px";
+            tip.textContent = "此構件所有位置皆已標記收貨";
+            card.appendChild(tip);
+        }
+
+        // 按鈕列
+        const btnRow = document.createElement("div");
+        btnRow.style.display = "flex";
+        btnRow.style.marginTop = "10px";
+        btnRow.style.gap = "10px";
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "danger-btn";
+        delBtn.textContent = "刪除";
+        delBtn.addEventListener("click", ()=> deletePlan(p.id));
+
+        const recvBtn = document.createElement("button");
+        recvBtn.className = "primary-btn";
+        recvBtn.textContent = "標記已收";
+        recvBtn.addEventListener("click", ()=> markReceived(p.id, p.item_id));
+
+        btnRow.appendChild(delBtn);
+        btnRow.appendChild(recvBtn);
+        card.appendChild(btnRow);
+
+        planList.appendChild(card);
+    });
+}
+
+/* ==========================================
+   Step 3：送出預計進料
+========================================== */
+document.getElementById("submitBtn").addEventListener("click", async ()=>{
+    const itemId = document.getElementById("itemIdInput").value.trim();
+    const date   = dateInput.value.trim();
+
+    if (!itemId) return alert("請輸入構件編號");
+    if (!date)   return alert("請選擇預計到貨日期");
+
+    const { error } = await db.from("planned_items").insert({
+        item_id: itemId,
+        planned_date: date,
+        status: "planned"
+    });
+
+    if (error) {
+        console.error(error);
+        alert("新增失敗：" + error.message);
+        return;
+    }
+
+    document.getElementById("itemIdInput").value = "";
+    // 日期不清空，方便連續輸入
+
+    await loadMetaData();
+    renderPlanList();
 });
-document.getElementById("nextMonth").addEventListener("click", () => {
-    current.setMonth(current.getMonth() + 1);
-    renderCalendar();
-});
+
+/* ==========================================
+   Step 4：標記已收 → today_records + planned_items
+========================================== */
+async function markReceived(id, itemId) {
+    const sel = document.getElementById("pos_" + id);
+    if (!sel || !sel.value) {
+        alert("請先選擇位置");
+        return;
+    }
+
+    const pos = sel.value;
+
+    if (!confirm(`確定將 ${itemId}（${pos}）標記為已收貨？`)) return;
+
+    const nowIso = new Date().toISOString();
+
+    const { error: e1 } = await db.from("today_records").insert({
+        item_id: itemId,
+        position: pos,
+        status: "received",
+        used_at: nowIso
+    });
+
+    if (e1) {
+        console.error(e1);
+        alert("寫入 today_records 失敗：" + e1.message);
+        return;
+    }
+
+    const { error: e2 } = await db
+        .from("planned_items")
+        .update({ status: "received", position: pos })
+        .eq("id", id);
+
+    if (e2) {
+        console.error(e2);
+        alert("更新 planned_items 失敗：" + e2.message);
+        return;
+    }
+
+    // 從畫面移除
+    const card = document.getElementById("card_" + id);
+    if (card) card.remove();
+
+    // 重新載入 usedPositions（避免位置還出現在其他卡）
+    await loadMetaData();
+    renderPlanList();
+
+    alert("已標記為已收貨");
+}
+
+/* ==========================================
+   Step 5：刪除預計進料
+========================================== */
+async function deletePlan(id) {
+    if (!confirm("確定要刪除此預計進料嗎？")) return;
+
+    const { error } = await db.from("planned_items").delete().eq("id", id);
+    if (error) {
+        console.error(error);
+        alert("刪除失敗：" + error.message);
+        return;
+    }
+
+    const card = document.getElementById("card_" + id);
+    if (card) card.remove();
+
+    await loadMetaData();
+    renderPlanList();
+}
+
+/* ==========================================
+   🚀 初始化
+========================================== */
+(async ()=>{
+    loadingSpinner.style.display = "block";
+    await loadMetaData();
+    loadingSpinner.style.display = "none";
+    renderPlanList();
+})();
 </script>
 
 </body>
