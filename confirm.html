@@ -1,99 +1,91 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
+
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>構件使用確認</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* ========= 深色卡片 ========= */
+/* ===== 字卡 ===== */
 .item-card {
-    background:#1c2433;
-    padding:16px;
-    margin:10px 0;
-    border-radius:14px;
-    color:#fff;
+    background: #1c2433;
+    padding: 16px;
+    margin: 12px 0;
+    border-radius: 14px;
+    color: #fff;
+    transition: background 0.2s;
+}
+.item-card:hover {
+    background: #222b3b;
 }
 
 .card-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.position-tag {
-    background:#2f7dff;
-    padding:4px 10px;
-    border-radius:10px;
-    font-size:13px;
-    margin-left:8px;
+.plan-details {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #2a3142;
 }
 
 .detail-sub {
-    color:#bbb;
-    font-size:14px;
-    margin-top:6px;
+    color: #bbb;
+    font-size: 14px;
+    margin: 6px 0;
 }
 
-/* ========= Loading ========= */
-#loadingSpinner {
-    display:none;
-    text-align:center;
-    padding:14px;
-}
-#loadingSpinner svg {
-    width:28px;
-    height:28px;
-    animation: spin 0.9s linear infinite;
-}
-@keyframes spin {
-    from{transform:rotate(0deg);}
-    to{transform:rotate(360deg);}
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
 }
 
+/* Loading */
 #loadMessage {
-    color:#aaa;
-    text-align:center;
-    padding:12px;
-    display:none;
+    display: none;
+    text-align: center;
+    color: #aaa;
+    padding: 16px;
 }
 </style>
 </head>
 
 <body>
 
+<!-- Top -->
 <div class="top-bar">
     <div class="top-bar-title">構件使用確認</div>
-    <a href="index.html" class="top-btn">返回主畫面</a>
+    <div class="top-bar-actions">
+        <a href="index.html" class="top-btn">返回主畫面</a>
+    </div>
 </div>
 
+<!-- 搜尋 + 排序 -->
 <div class="screen-card">
     <div class="section-title">搜尋</div>
-    <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 規格 / 位置">
+    <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 位置 / 規格">
 
     <div class="section-title">排序</div>
     <select id="sortSelect" class="input-bar">
-        <option value="id_asc">構件編號（A→Z）</option>
-        <option value="id_desc">構件編號（Z→A）</option>
-        <option value="pos_asc">位置（A→Z）</option>
-        <option value="pos_desc">位置（Z→A）</option>
+        <option value="id_asc">構件編號（A → Z）</option>
+        <option value="id_desc">構件編號（Z → A）</option>
+        <option value="pos_asc">位置（A → Z）</option>
+        <option value="pos_desc">位置（Z → A）</option>
     </select>
 </div>
 
+<!-- 列表 -->
 <div class="screen-card">
-    <div class="section-title">等待確認使用</div>
-
+    <div class="section-title">待確認使用列表</div>
     <div id="confirmList"></div>
-
-    <!-- Loading -->
-    <div id="loadingSpinner">
-        <svg viewBox="0 0 24 24">
-            <path fill="#ccc" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 110 12 6 6 0 010-12z"/>
-        </svg>
-    </div>
-
-    <div id="loadMessage">沒有任何待使用記錄</div>
+    <div id="loadMessage">無資料</div>
 </div>
 
 <!-- Supabase -->
@@ -101,7 +93,7 @@
 
 <script>
 /* ==========================================
-   Supabase
+   🔧 Supabase 初始化
 ========================================== */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY =
@@ -110,61 +102,37 @@ const SUPABASE_KEY =
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ==========================================
-   全域
+   全域資料
 ========================================== */
-let records = [];      // today_records
+let records = [];      // today_records（待確認使用）
 let components = [];   // components_library
 
-let currentSort = "id_asc";
 let searchKeyword = "";
+let currentSort = "id_asc";
 
-const confirmList   = document.getElementById("confirmList");
-const loadingSpinner = document.getElementById("loadingSpinner");
-const loadMessage    = document.getElementById("loadMessage");
+const confirmList = document.getElementById("confirmList");
+const loadMessage = document.getElementById("loadMessage");
 
 /* ==========================================
-   Step 1: 載入資料
+   Step 1：載入資料
 ========================================== */
-async function loadData() {
+async function loadMetaData() {
 
-    loadingSpinner.style.display = "block";
-
-    // today_records: status = 'received' → waiting for confirmation
     const { data: rec } = await db
         .from("today_records")
         .select("*")
-        .eq("status","received")
-        .order("item_id", { ascending:true });
+        .eq("status", "received");      // 只抓「已進料，但尚未使用」的
 
-    records = rec || [];
-
-    // components
     const { data: comp } = await db
         .from("components_library")
         .select("*");
 
+    records = rec || [];
     components = comp || [];
-
-    loadingSpinner.style.display = "none";
-
-    renderList();
 }
 
 /* ==========================================
-   Step 2: 搜尋、排序
-========================================== */
-document.getElementById("searchBox").addEventListener("input", ()=>{
-    searchKeyword = document.getElementById("searchBox").value.trim().toLowerCase();
-    renderList();
-});
-
-document.getElementById("sortSelect").addEventListener("change", (e)=>{
-    currentSort = e.target.value;
-    renderList();
-});
-
-/* ==========================================
-   Step 3: 渲染卡片
+   Step 2：渲染列表
 ========================================== */
 function renderList() {
 
@@ -174,11 +142,11 @@ function renderList() {
 
     /* 搜尋 */
     if (searchKeyword) {
-        list = list.filter(r=>{
-            const comp = components.find(c=>c.item_id === r.item_id) || {};
+        list = list.filter(r => {
+            const comp = components.find(c => c.item_id === r.item_id) || {};
             return (
                 r.item_id.toLowerCase().includes(searchKeyword) ||
-                r.position?.toLowerCase().includes(searchKeyword) ||
+                (r.position || "").toLowerCase().includes(searchKeyword) ||
                 (comp.spec || "").toLowerCase().includes(searchKeyword)
             );
         });
@@ -198,95 +166,136 @@ function renderList() {
     if (list.length === 0) {
         loadMessage.style.display = "block";
         return;
+    } else {
+        loadMessage.style.display = "none";
     }
 
-    loadMessage.style.display = "none";
-
-    /* 分組 */
-    let lastId = null;
-
     list.forEach(r=>{
-        const comp = components.find(c=> c.item_id === r.item_id) || {};
-
-        if (r.item_id !== lastId) {
-            const header = document.createElement("div");
-            header.className = "section-title";
-            header.style.marginTop = "16px";
-            header.textContent = r.item_id;
-            confirmList.appendChild(header);
-            lastId = r.item_id;
-        }
+        const comp = components.find(c => c.item_id === r.item_id) || {};
+        const totalQty = comp.qty || 1;
+        const cardId = "details_" + r.id;
+        const qtyId  = "qty_" + r.id;
 
         const card = document.createElement("div");
         card.className = "item-card";
-        card.id = "card_" + r.id;
 
-        const h = document.createElement("div");
-        h.className = "card-header";
-        h.innerHTML = `
-            <div>
-                <span style="font-size:16px;font-weight:700;">${r.position || "無位置"}</span>
+        card.innerHTML = `
+            <div class="card-header" onclick="toggleDetails('${cardId}')">
+                <div style="font-size:17px;font-weight:700;">${r.item_id}</div>
+                <div style="font-size:15px;color:#7fc4ff;">${r.position || "—"}</div>
             </div>
-            <div class="position-tag">待使用</div>
+
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+                <span style="color:#bbb;font-size:15px;">使用數量</span>
+
+                <button class="btn" onclick="event.stopPropagation(); changeQty('${qtyId}', -1, ${totalQty});">－</button>
+
+                <input id="${qtyId}" type="number" value="1" min="1" max="${totalQty}"
+                    oninput="enforceMax('${qtyId}', ${totalQty})"
+                    style="width:60px;text-align:center;padding:6px;border-radius:8px;background:#1c2433;color:#fff;border:1px solid #333;">
+
+                <button class="btn" onclick="event.stopPropagation(); changeQty('${qtyId}', 1, ${totalQty});">＋</button>
+            </div>
+
+            <button class="primary-btn full" style="margin-top:12px;"
+                onclick="event.stopPropagation(); confirmUsed(${r.id}, '${qtyId}', ${totalQty});">
+                確認使用
+            </button>
+
+            <div id="${cardId}" class="plan-details">
+                <div class="detail-sub">${comp.spec || ""}</div>
+                <div class="detail-sub">材質：${comp.material || ""}</div>
+                <div class="detail-sub">重量：${comp.weight || ""}</div>
+            </div>
         `;
 
-        card.appendChild(h);
-
-        card.innerHTML += `
-            <div class="detail-sub">${comp.spec || ""}</div>
-            <div class="detail-sub">材質：${comp.material || ""}</div>
-            <div class="detail-sub">重量：${comp.weight || ""}</div>
-        `;
-
-        const btn = document.createElement("button");
-        btn.className = "primary-btn full";
-        btn.style.marginTop = "12px";
-        btn.textContent = "確認使用";
-        btn.onclick = ()=> confirmUsed(r.id);
-
-        card.appendChild(btn);
         confirmList.appendChild(card);
     });
 }
 
 /* ==========================================
-   Step 4: 確認使用
+   數量調整
 ========================================== */
-async function confirmUsed(id) {
+function changeQty(id, delta, maxQty) {
+    const el = document.getElementById(id);
+    let v = parseInt(el.value || "1", 10);
+    v += delta;
 
-    if (!confirm("確定此構件已於現場使用？")) return;
+    if (v < 1) v = 1;
+    if (v > maxQty) v = maxQty;
 
-    const nowIso = new Date().toISOString();
+    el.value = v;
+}
 
-    const { error } = await db
-        .from("today_records")
-        .update({
-            status: "used",
-            used_at: nowIso
-        })
-        .eq("id", id);
+function enforceMax(id, maxQty) {
+    const el = document.getElementById(id);
+    let v = parseInt(el.value || "1", 10);
 
-    if (error) {
-        console.error(error);
-        alert("更新失敗：" + error.message);
+    if (v < 1) v = 1;
+    if (v > maxQty) v = maxQty;
+
+    el.value = v;
+}
+
+/* ==========================================
+   展開 / 收合
+========================================== */
+function toggleDetails(id) {
+    const el = document.getElementById(id);
+    el.style.display = (el.style.display === "block") ? "none" : "block";
+}
+
+/* ==========================================
+   確認使用
+========================================== */
+async function confirmUsed(id, qtyId, maxQty) {
+
+    const qty = Number(document.getElementById(qtyId)?.value || 1);
+
+    if (qty < 1 || qty > maxQty) {
+        alert(`使用數量必須 1～${maxQty}`);
         return;
     }
 
-    // 立即更新畫面
-    const el = document.getElementById("card_" + id);
-    if (el) el.remove();
+    if (!confirm(`確定使用？\n使用數量：${qty}`)) return;
 
-    // 從 records 移除
-    records = records.filter(x=> x.id !== id);
+    await db.from("used_records").insert({
+        record_id: id,
+        used_qty: qty,
+        used_at: new Date().toISOString()
+    });
 
+    alert("已確認使用");
+
+    await loadMetaData();
     renderList();
 }
 
 /* ==========================================
-   🚀 Init
+   搜尋
 ========================================== */
-loadData();
+document.getElementById("searchBox").addEventListener("input", e=>{
+    searchKeyword = e.target.value.trim().toLowerCase();
+    renderList();
+});
+
+/* ==========================================
+   排序
+========================================== */
+document.getElementById("sortSelect").addEventListener("change", e=>{
+    currentSort = e.target.value;
+    renderList();
+});
+
+/* ==========================================
+   初始化
+========================================== */
+(async ()=>{
+    await loadMetaData();
+    renderList();
+})();
 </script>
 
 </body>
 </html>
+
