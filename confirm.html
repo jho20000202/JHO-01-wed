@@ -7,75 +7,78 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-body { background:#111722; color:#fff; margin:0; }
-
-.screen-card {
-    background:#151d2b;
-    padding:18px;
-    margin:14px;
-    border-radius:14px;
-}
-
-/* 搜尋框 */
-.input-bar {
-    width:100%;
-    padding:14px;
-    background:#1c2433;
-    border-radius:10px;
-    border:1px solid #2c3344;
-    color:#fff;
-    margin-top:8px;
-}
-
-/* 字卡 */
-.card {
+/* 單欄卡片 */
+.use-card {
     background:#1c2433;
     padding:16px;
+    margin:12px 0;
     border-radius:14px;
-    margin-top:14px;
+    color:#fff;
 }
 
-/* 一欄的排版 */
-.row-line {
+.use-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:17px;
+    font-weight:700;
+}
+
+.use-sub {
+    margin-top:8px;
+    color:#bbb;
+    font-size:14px;
+}
+
+/* 數量調整 */
+.qty-box {
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    gap:10px;
+    margin-top:10px;
 }
 
-/* 數量調整按鈕 */
 .qty-btn {
     width:32px;
     height:32px;
-    border-radius:8px;
-    background:#0f1825;
+    border-radius:10px;
+    font-size:20px;
+    background:#2f7dff;
+    color:#fff;
     display:flex;
-    align-items:center;
     justify-content:center;
-    margin:0 6px;
-    cursor:pointer;
+    align-items:center;
+}
+
+.qty-num {
+    width:30px;
+    text-align:center;
     font-size:18px;
     color:#fff;
 }
 
-.qty-box {
-    width:40px;
-    text-align:center;
-    font-size:16px;
-}
-
-/* 主按鈕 */
+/* 小型使用按鈕 */
 .use-btn {
-    margin-top:12px;
-    width:100%;
-    padding:14px;
-    background:#2f7dff;
+    margin-top:10px;
+    background:#27ae60;
+    padding:10px 14px;
     color:#fff;
     border-radius:12px;
-    font-size:16px;
+    font-size:14px;
+    width:100px;
     text-align:center;
 }
-.use-btn:active { opacity:0.8; }
 
+.use-details {
+    display:none;
+    margin-top:12px;
+    border-top:1px solid #2a3142;
+    padding-top:10px;
+}
+
+.search-bar {
+    margin-bottom:14px;
+}
 </style>
 </head>
 
@@ -87,197 +90,174 @@ body { background:#111722; color:#fff; margin:0; }
 </div>
 
 <div class="screen-card">
-    <div class="section-title">搜尋</div>
-    <input id="searchBox" class="input-bar" placeholder="搜尋：構件編號 / 規格 / 位置">
+    <div class="section-title">搜尋構件</div>
+    <input id="searchBox" class="input-bar search-bar" placeholder="搜尋：編號 / 位置">
 </div>
 
-<div id="listContainer" class="screen-card"></div>
+<div class="screen-card">
+    <div class="section-title">使用清單</div>
+    <div id="useList"></div>
+</div>
 
 <!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
-// ===============================
-// Supabase 初始化
-// ===============================
+/* 初始化 Supabase */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ===============================
-// 全域變數
-// ===============================
-let planned = [];
-let components = [];
-let grouped = {};  // 依 item_id + position 合併
-let searchKeyword = "";
+/* 全域資料 */
+let items = [];      // 合併後的構件使用表
+let components = []; // components_library 資料
 
-// ===============================
-// Step 1：載入資料
-// ===============================
+const useList = document.getElementById("useList");
+
+/* 載入資料 */
 async function loadData() {
-
-    // 只抓已收貨 / 等待使用的構件
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
-        .eq("status", "received")
-        .order("planned_date", { ascending:false });
+        .gt("planned_qty", 0);   // 只顯示還有數量可用的
 
-    planned = plan || [];
-
-    // 構件資料
     const { data: comp } = await db
         .from("components_library")
         .select("*");
 
     components = comp || [];
 
-    groupData();
-    renderList();
-}
+    // 合併：item_id + position 分組
+    const map = {};
 
-// ===============================
-// Step 2：合併相同 item_id + position
-// ===============================
-function groupData() {
-    grouped = {};
-
-    planned.forEach(p => {
-        const key = `${p.item_id}_${p.position}`;
-
-        if (!grouped[key]) {
-            grouped[key] = {
+    plan.forEach(p => {
+        const key = p.item_id + "|" + (p.position || "");
+        if (!map[key]) {
+            map[key] = {
                 item_id: p.item_id,
                 position: p.position,
-                planned_qty: p.planned_qty || 1,
-                used: 1, // 初始使用量
-                comp: components.find(c => c.item_id === p.item_id) || {}
+                planned_qty: p.planned_qty,
+                details: components.filter(c => c.item_id === p.item_id)[0] || {}
             };
         }
     });
+
+    items = Object.values(map);
+    renderList(items);
 }
 
-// ===============================
-// Step 3：渲染列表
-// ===============================
-function renderList() {
-    const box = document.getElementById("listContainer");
-    box.innerHTML = "";
+/* 渲染列表 */
+function renderList(list) {
+    useList.innerHTML = "";
 
-    let list = Object.values(grouped);
+    list.forEach((it, idx) => {
+        const id = "details_" + idx;
+        const qtyId = "qty_" + idx;
 
-    // 搜尋
-    if (searchKeyword) {
-        const q = searchKeyword.toLowerCase();
-        list = list.filter(r =>
-            r.item_id.toLowerCase().includes(q) ||
-            (r.position || "").toLowerCase().includes(q) ||
-            (r.comp.spec || "").toLowerCase().includes(q)
-        );
-    }
+        const card = `
+            <div class="use-card">
 
-    if (!list.length) {
-        box.innerHTML =
-            "<div style='text-align:center;color:#aaa;padding:20px;'>目前無任何預計進料構件</div>";
-        return;
-    }
-
-    list.forEach((item, i) => {
-        const card = document.createElement("div");
-        card.className = "card";
-
-        const remain = item.planned_qty;
-
-        card.innerHTML = `
-            <div class="row-line">
-                <div style="font-size:20px;font-weight:700">${item.item_id}</div>
-                <div style="opacity:0.7">${item.position}</div>
-            </div>
-
-            <div class="row-line" style="margin-top:12px;">
-                <div style="display:flex;align-items:center;">
-                    <div class="qty-btn" onclick="decQty(${i})">-</div>
-                    <div class="qty-box" id="qty_${i}">${item.used}</div>
-                    <div class="qty-btn" onclick="incQty(${i}, ${remain})">+</div>
+                <div class="use-header" onclick="toggleDetails('${id}')">
+                    <div>${it.item_id}</div>
+                    <div>${it.position || "-"}</div>
                 </div>
 
-                <div style="color:#aaa;font-size:14px;">
-                    （剩餘 ${remain}）
-                </div>
-            </div>
+                <div class="qty-box">
+                    <div class="qty-btn" onclick="changeQty('${qtyId}', -1, ${it.planned_qty})">-</div>
+                    <div id="${qtyId}" class="qty-num">1</div>
+                    <div class="qty-btn" onclick="changeQty('${qtyId}', 1, ${it.planned_qty})">+</div>
 
-            <div class="use-btn" onclick="confirmUse(${i})">確認使用</div>
+                    <div class="use-btn" onclick="confirmUse('${it.item_id}','${it.position}', '${qtyId}', ${it.planned_qty})">
+                        使用
+                    </div>
+                </div>
+
+                <div id="${id}" class="use-details">
+                    <div class="use-sub">規格：${it.details.spec || "-"}</div>
+                    <div class="use-sub">材質：${it.details.material || "-"}</div>
+                    <div class="use-sub">重量：${it.details.weight || "-"}</div>
+                </div>
+
+            </div>
         `;
 
-        box.appendChild(card);
+        useList.insertAdjacentHTML("beforeend", card);
     });
 }
 
-// ===============================
-// 使用數量控制
-// ===============================
-function decQty(i) {
-    if (grouped[Object.keys(grouped)[i]].used > 1) {
-        grouped[Object.keys(grouped)[i]].used--;
-        document.getElementById(`qty_${i}`).innerText =
-            grouped[Object.keys(grouped)[i]].used;
-    }
+/* 展開/收合 */
+function toggleDetails(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === "block" ? "none" : "block";
 }
 
-function incQty(i, max) {
-    if (grouped[Object.keys(grouped)[i]].used < max) {
-        grouped[Object.keys(grouped)[i]].used++;
-        document.getElementById(`qty_${i}`).innerText =
-            grouped[Object.keys(grouped)[i]].used;
-    }
+/* 增減數量 */
+function changeQty(id, delta, max) {
+    const n = document.getElementById(id);
+    let v = parseInt(n.textContent);
+    v = v + delta;
+    if (v < 1) v = 1;
+    if (v > max) v = max;
+    n.textContent = v;
 }
 
-// ===============================
-// Step 4：確認使用
-// ===============================
-async function confirmUse(i) {
-    const item = Object.values(grouped)[i];
+/* 確認使用 → 寫入 today_records + 更新 planned_items */
+async function confirmUse(item_id, position, qtyId, max) {
+    const qty = parseInt(document.getElementById(qtyId).textContent);
 
-    if (!confirm(`確認使用 ${item.item_id}\n位置：${item.position}\n使用數量：${item.used}`))
-        return;
+    if (!confirm(`確認使用：${item_id}（${position}） x ${qty}？`)) return;
 
-    // 新增 today_records 一筆
+    const nowIso = new Date().toISOString();
+
+    // today_records
     await db.from("today_records").insert({
-        item_id: item.item_id,
-        position: item.position,
-        qty: item.used,
-        date: new Date().toISOString().slice(0,10)
+        item_id,
+        position,
+        used_qty: qty,
+        used_at: nowIso,
+        status: "used"
     });
 
-    // 變更狀態
-    await db.from("planned_items")
-        .update({ status:"used" })
-        .eq("item_id", item.item_id)
-        .eq("position", item.position);
+    // planned_items 減少數量
+    const { data: rows } = await db
+        .from("planned_items")
+        .select("*")
+        .eq("item_id", item_id)
+        .eq("position", position);
 
-    alert("已確認使用");
+    if (rows.length) {
+        const p = rows[0];
+        const newQty = p.planned_qty - qty;
 
-    // 告知 planned.html 要重新刷新
-    localStorage.setItem("refresh_planned","yes");
+        if (newQty <= 0) {
+            await db.from("planned_items")
+                .update({ planned_qty: 0, status: "used" })
+                .eq("id", p.id);
+        } else {
+            await db.from("planned_items")
+                .update({ planned_qty: newQty })
+                .eq("id", p.id);
+        }
+    }
 
-    window.location.href = "planned.html";
+    // UI：移除該卡片
+    loadData();
 }
 
-// ===============================
-// 搜尋事件
-// ===============================
-document.getElementById("searchBox").addEventListener("input", e=>{
-    searchKeyword = e.target.value.trim();
-    renderList();
+/* 搜尋 */
+document.getElementById("searchBox").addEventListener("input", e => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = items.filter(it =>
+        it.item_id.toLowerCase().includes(q) ||
+        (it.position || "").toLowerCase().includes(q)
+    );
+    renderList(filtered);
 });
 
-// ===============================
-// 初始化
-// ===============================
+/* 初始化 */
 loadData();
-
 </script>
 
 </body>
