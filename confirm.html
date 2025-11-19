@@ -11,73 +11,87 @@
 .top-bar {
     background: #11161f;
     padding: 16px;
-    border-radius: 20px;
     margin: 12px;
+    border-radius: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-.top-bar-title { font-size: 20px; color:#fff; font-weight:700; }
-.top-btn { padding:6px 16px; background:#1e2737; color:#fff; border-radius:15px; }
+.top-bar-title { font-size: 20px; font-weight: 700; color: #fff; }
+.top-btn { padding: 6px 16px; background:#1e2737; color:#fff; border-radius:15px; }
 
-/* 搜尋列 */
+/* 搜尋 */
 .input-bar { width:100%; padding:14px; background:#1c2433; border-radius:14px; color:#fff; }
 
-/* 卡片 */
+/* 卡片容器 */
 .item-card {
     background:#1c2433;
-    padding:16px;
     margin:12px;
+    padding:16px;
     border-radius:16px;
     color:#fff;
 }
-.item-header { display:flex; justify-content:space-between; align-items:center; }
 
-/* 一行資訊 */
+/* 頭部 */
+.item-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+}
+.item-id {
+    font-size:18px;
+    font-weight:700;
+}
+
+/* 單行顯示列 */
 .row-line {
+    margin-top: 10px;
     display:flex;
     align-items:center;
-    gap:12px;
-    margin-top:10px;
+    gap:14px;
     flex-wrap:nowrap;
     white-space:nowrap;
 }
-.item-id { font-size:18px; font-weight:700; }
 
 /* 數量控制 */
 .qty-box {
     display:flex;
     align-items:center;
-    gap:8px;
+    gap:6px;
 }
 .qty-btn {
-    width:32px; height:32px;
-    display:flex; justify-content:center; align-items:center;
+    width:30px;
+    height:30px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
     background:#1e2737;
     border-radius:8px;
     font-size:18px;
 }
 .qty-display {
-    min-width:28px;
+    min-width:26px;
     text-align:center;
 }
 
-/* 小按鈕 */
+/* 使用按鈕 */
 .use-btn {
-    padding:10px 16px;
+    padding:8px 14px;
     background:#2f7dff;
     color:#fff;
-    border-radius:10px;
+    border-radius:8px;
     cursor:pointer;
 }
 
-/* 展開面板 */
+/* 展開詳細 */
 .detail-panel {
+    display:none;
+    border-top:1px solid #2a3142;
     margin-top:10px;
     padding-top:10px;
-    border-top:1px solid #2a3142;
-    display:none;
     color:#bbb;
+    line-height:1.6;
 }
 
 /* 回到頂端 */
@@ -90,13 +104,13 @@
     border-radius: 50%;
     background: rgba(255,255,255,0.15);
     backdrop-filter: blur(6px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .3s, transform .25s, bottom .25s;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    cursor:pointer;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity .3s, transform .25s;
 }
 #backTopBtn.visible { opacity:1; pointer-events:auto; }
 #backTopBtn svg { width:22px; height:22px; fill:#fff; }
@@ -118,7 +132,7 @@
 <div id="itemList"></div>
 
 <div id="backTopBtn">
-    <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"></path></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -131,148 +145,176 @@ const db = supabase.createClient(
 );
 
 /* 全域資料 */
-let planned = [];
-let components = [];
-let filtered = [];
+let merged = [];       // 合併後的資料
+let components = [];   // 規格資料
 
-/* DOM */
-const itemList = document.getElementById("itemList");
-
-/* 載入資料 */
+/* 取得資料 */
 async function loadData() {
 
+    /* 讀取已收貨 + 剩餘量 > 0 */
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
         .eq("status", "received")
         .gt("planned_qty", 0);
 
-    planned = plan || [];
-
+    /* 讀取規格資料 */
     const { data: comp } = await db
         .from("components_library")
         .select("*");
 
     components = comp || [];
 
-    renderList(planned);
-}
+    /* --- 合併邏輯（item_id + position） --- */
+    const map = {};
 
-/* 搜尋 */
-document.getElementById("searchBox").addEventListener("input", e => {
-    const q = e.target.value.trim().toLowerCase();
-
-    if (!q) {
-        renderList(planned);
-        return;
-    }
-
-    const result = planned.filter(p => {
-        const comp = components.find(c => c.item_id === p.item_id);
-        return (
-            p.item_id.toLowerCase().includes(q) ||
-            (comp?.spec || "").toLowerCase().includes(q) ||
-            (comp?.position || "").toLowerCase().includes(q)
-        );
+    plan.forEach(p => {
+        const key = p.item_id + "|" + (p.position || "");
+        if (!map[key]) {
+            map[key] = {
+                item_id: p.item_id,
+                position: p.position,
+                total_qty: 0,
+                rows: [],   // 用來扣數
+            };
+        }
+        map[key].total_qty += p.planned_qty;
+        map[key].rows.push(p);
     });
 
-    renderList(result);
-});
+    merged = Object.values(map);
 
-/* 產生 UI */
+    renderList(merged);
+}
+
+/* 渲染列表 */
 function renderList(list) {
-    itemList.innerHTML = "";
+    const box = document.getElementById("itemList");
+    box.innerHTML = "";
 
-    list.forEach(p => {
-
-        const comp = components.find(c => c.item_id === p.item_id) || {};
-        const cardId = "detail_" + p.id;
+    list.forEach(item => {
+        const comp = components.find(c => c.item_id === item.item_id) || {};
+        const cardId = "detail_" + item.item_id + "_" + item.position.replace(/\W/g, '');
 
         const html = `
-            <div class="item-card">
+        <div class="item-card">
 
-                <div class="item-header" onclick="toggleDetail('${cardId}')">
-                    <div class="item-id">${p.item_id}</div>
-                    <div style="opacity:.8">${comp.position || ""}</div>
+            <div class="item-header" onclick="toggleDetail('${cardId}')">
+                <div class="item-id">${item.item_id}</div>
+                <div style="opacity:.7">${item.position}</div>
+            </div>
+
+            <div class="row-line">
+
+                <div class="qty-box">
+                    <div class="qty-btn" onclick="decQty('${item.item_id}', '${item.position}')">−</div>
+                    <div id="qty_${item.item_id}_${item.position}" class="qty-display">1</div>
+                    <div class="qty-btn" onclick="incQty('${item.item_id}', '${item.position}', ${item.total_qty})">＋</div>
                 </div>
 
-                <!-- 一行排版 -->
-                <div class="row-line">
+                <div style="font-size:13px; opacity:.6;">剩餘 ${item.total_qty}</div>
 
-                    <div class="qty-box">
-                        <div class="qty-btn" onclick="decQty('${p.id}')">−</div>
-                        <div id="qty_${p.id}" class="qty-display">1</div>
-                        <div class="qty-btn" onclick="incQty('${p.id}', ${p.planned_qty})">＋</div>
-                    </div>
-
-                    <div style="font-size:14px; opacity:.7;">( 剩餘 ${p.planned_qty} )</div>
-
-                    <div class="use-btn" onclick="confirmUse('${p.id}')">
-                        確認使用
-                    </div>
-                </div>
-
-                <!-- 展開資訊 -->
-                <div id="${cardId}" class="detail-panel">
-                    規格：${comp.spec || ""}<br>
-                    材質：${comp.material || ""}<br>
-                    重量：${comp.weight || ""}<br>
+                <div class="use-btn" onclick="confirmUse('${item.item_id}', '${item.position}')">
+                    確認使用
                 </div>
             </div>
-        `;
 
-        itemList.insertAdjacentHTML("beforeend", html);
+            <div id="${cardId}" class="detail-panel">
+                規格：${comp.spec || ""}<br>
+                材質：${comp.material || ""}<br>
+                重量：${comp.weight || ""}<br>
+            </div>
+
+        </div>`;
+        box.insertAdjacentHTML("beforeend", html);
     });
 }
 
-/* 展開/收合 */
+/* 展開 */
 function toggleDetail(id) {
     const el = document.getElementById(id);
     el.style.display = (el.style.display === "block") ? "none" : "block";
 }
 
 /* 數量控制 */
-function decQty(id) {
-    let el = document.getElementById("qty_" + id);
-    let v = Number(el.textContent);
+function decQty(id, pos) {
+    const el = document.getElementById(`qty_${id}_${pos}`);
+    const v = Number(el.textContent);
     if (v > 1) el.textContent = v - 1;
 }
-
-function incQty(id, max) {
-    let el = document.getElementById("qty_" + id);
-    let v = Number(el.textContent);
+function incQty(id, pos, max) {
+    const el = document.getElementById(`qty_${id}_${pos}`);
+    const v = Number(el.textContent);
     if (v < max) el.textContent = v + 1;
 }
 
-/* 確認使用 */
-async function confirmUse(id) {
+/* 使用確認 */
+async function confirmUse(item_id, position) {
+    const qtyEl = document.getElementById(`qty_${item_id}_${position}`);
+    const useQty = Number(qtyEl.textContent);
 
-    const qty = Number(document.getElementById("qty_" + id).textContent);
-
-    const item = planned.find(p => p.id == id);
+    const item = merged.find(m => m.item_id === item_id && m.position === position);
     if (!item) return;
 
-    // 寫入 today_records
+    if (useQty > item.total_qty) {
+        alert("使用量不可超過剩餘量");
+        return;
+    }
+
+    let remain = useQty;
+
+    /* 找出所有該 group 的 planned_items，按照日期先後扣除 */
+    const rows = item.rows.sort((a,b) => new Date(a.planned_date) - new Date(b.planned_date));
+
+    for (let r of rows) {
+        if (remain <= 0) break;
+
+        if (r.planned_qty > remain) {
+            await db.from("planned_items")
+                .update({ planned_qty: r.planned_qty - remain })
+                .eq("id", r.id);
+            remain = 0;
+
+        } else {
+            await db.from("planned_items")
+                .update({ planned_qty: 0, status: "used" })
+                .eq("id", r.id);
+            remain -= r.planned_qty;
+        }
+    }
+
+    /* 新增 today_records */
     await db.from("today_records").insert({
-        item_id: item.item_id,
-        qty: qty,
+        item_id: item_id,
+        position: position,
+        qty: useQty,
         used_at: new Date().toISOString()
     });
 
-    // 更新 planned_items 剩餘量
-    const remain = item.planned_qty - qty;
-
-    await db.from("planned_items")
-        .update({
-            planned_qty: remain,
-            status: remain > 0 ? "received" : "used"
-        })
-        .eq("id", id);
-
-    alert("已登記使用");
+    alert("已記錄使用");
 
     loadData();
 }
+
+/* 搜尋 */
+document.getElementById("searchBox").addEventListener("input", e => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) {
+        renderList(merged);
+        return;
+    }
+
+    const result = merged.filter(m => {
+        const comp = components.find(c => c.item_id === m.item_id);
+        return (
+            m.item_id.toLowerCase().includes(q) ||
+            (m.position || "").toLowerCase().includes(q) ||
+            (comp?.spec || "").toLowerCase().includes(q)
+        );
+    });
+
+    renderList(result);
+});
 
 /* 回到頂端 */
 const backTopBtn = document.getElementById("backTopBtn");
