@@ -1,219 +1,295 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>構件管理</title>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>構件管理</title>
+<link rel="stylesheet" href="styles.css">
 
-    <style>
-        body { padding: 20px; }
+<style>
+body { padding:20px; }
 
-        .header-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            align-items: center;
-        }
-        .header-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #fff;
-        }
-        .back-btn {
-            padding: 10px 20px;
-            background: #2f3340;
-            color: #fff;
-            border-radius: 12px;
-            cursor: pointer;
-        }
+/* Header */
+.header-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+.header-title {
+    font-size:24px;
+    font-weight:bold;
+    color:#fff;
+}
+.back-btn {
+    padding:10px 20px;
+    background:#2f3340;
+    color:#fff;
+    border-radius:12px;
+    cursor:pointer;
+}
 
-        .input-box {
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            background: #2a2b31;
-            border: none;
-            color: #fff;
-            margin-bottom: 14px;
-        }
+/* Input */
+.input-box {
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    background:#2a2b31;
+    border:none;
+    color:#fff;
+    margin-bottom:14px;
+}
 
-        .primary-btn {
-            width: 100%;
-            padding: 14px;
-            background: #3d7bff;
-            border-radius: 14px;
-            color: #fff;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
+/* Buttons */
+.primary-btn {
+    width:100%;
+    padding:14px;
+    background:#3d7bff;
+    border-radius:14px;
+    color:#fff;
+    text-align:center;
+    cursor:pointer;
+    margin-bottom:20px;
+}
 
-        .section-title {
-            color: #bbb;
-            margin: 16px 0 8px 0;
-            font-size: 15px;
-        }
+.section-title {
+    color:#bbb;
+    margin:16px 0 8px;
+    font-size:15px;
+}
 
-        .item-card {
-            background: #2a2b31;
-            color: #fff;
-            padding: 16px;
-            border-radius: 14px;
-            margin-bottom: 16px;
-        }
+/* Item card */
+.item-card {
+    background:#2a2b31;
+    color:#fff;
+    padding:16px;
+    border-radius:14px;
+    margin-bottom:16px;
+}
+.item-head {
+    font-size:18px;
+    font-weight:bold;
+}
+.item-sub {
+    margin-top:4px;
+    color:#bbb;
+    font-size:14px;
+}
 
-        .item-head {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .item-sub {
-            margin-top: 4px;
-            color: #bbb;
-            font-size: 14px;
-        }
-
-        .row {
-            display: flex;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .select-box {
-            flex: 1;
-            padding: 14px;
-            border-radius: 12px;
-            background: #33353d;
-            border: none;
-            color: #fff;
-        }
-
-        .btn-update {
-            padding: 12px 18px;
-            background: #3d7bff;
-            color: #fff;
-            border-radius: 12px;
-            cursor: pointer;
-        }
-
-        .btn-delete {
-            padding: 12px 18px;
-            background: #d9534f;
-            color: #fff;
-            border-radius: 12px;
-            cursor: pointer;
-        }
-    </style>
+/* Edit row */
+.row {
+    display:flex;
+    gap:10px;
+    margin-top:12px;
+}
+.select-box, .edit-box {
+    flex:1;
+    padding:14px;
+    border-radius:12px;
+    background:#33353d;
+    border:none;
+    color:#fff;
+}
+.btn-update {
+    padding:12px 18px;
+    background:#3d7bff;
+    color:#fff;
+    border-radius:12px;
+    cursor:pointer;
+}
+.btn-delete {
+    padding:12px 18px;
+    background:#d9534f;
+    color:#fff;
+    border-radius:12px;
+    cursor:pointer;
+}
+</style>
 </head>
 
 <body>
 
-    <!-- Header -->
-    <div class="header-row">
-        <div class="header-title">構件管理</div>
-        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
-    </div>
+<!-- Header -->
+<div class="header-row">
+    <div class="header-title">構件管理</div>
+    <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
+</div>
 
-    <!-- Search -->
-    <input id="search" class="input-box" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="renderList()">
+<!-- Search -->
+<input id="search" class="input-box" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="renderList()">
 
-    <!-- 新增構件 -->
-    <div class="section-title">單筆新增構件</div>
+<!-- 新增構件 -->
+<div class="section-title">單筆新增構件</div>
 
-    <input id="newId" class="input-box" placeholder="構件編號，例如 A-001">
-    <input id="newPos" class="input-box" placeholder="構件位置，例如 0/A">
-    <input id="newWeight" class="input-box" placeholder="構件重量（可含千分位）">
-    <input id="newQty" class="input-box" placeholder="構件數量，例如 10">
-    <input id="newSpec" class="input-box" placeholder="構件規格，例如 PL-25*500*650">
+<input id="newId"      class="input-box" placeholder="構件編號，例如 A-001">
+<input id="newPos"     class="input-box" placeholder="構件位置，例如 0/A">
+<input id="newWeight"  class="input-box" placeholder="構件重量">
+<input id="newQty"     class="input-box" placeholder="構件數量，例如 10">
+<input id="newSpec"    class="input-box" placeholder="構件規格，例如 PL-25*500*650">
+<input id="newMaterial" class="input-box" placeholder="材質，例如 SS400">
 
-    <div class="primary-btn" onclick="addItem()">新增一筆</div>
+<div class="primary-btn" onclick="addItem()">新增一筆</div>
 
-    <div class="section-title">構件狀態管理（點選展開）</div>
+<div class="section-title">構件列表</div>
 
-    <div id="itemList"></div>
+<div id="itemList"></div>
 
-    <script>
-        let items = [];
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Supabase INIT */
+const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
-        function addItem() {
-            const id = newId.value.trim();
-            const pos = newPos.value.trim();
-            const w = newWeight.value.trim();
-            const q = newQty.value.trim();
-            const s = newSpec.value.trim();
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-            if (!id || !q) {
-                alert("至少需要填寫【構件編號】與【數量】");
-                return;
-            }
+let items = [];
 
-            items.push({
-                id,
-                pos,
-                weight: w,
-                qty: q,
-                spec: s,
-                status: "未進料"
-            });
+/* 讀取全部構件 */
+async function loadItems() {
+    const { data, error } = await db
+        .from("components_library")
+        .select("*")
+        .order("item_id");
 
-            newId.value = "";
-            newPos.value = "";
-            newWeight.value = "";
-            newQty.value = "";
-            newSpec.value = "";
+    if (error) {
+        alert("讀取失敗：" + error.message);
+        return;
+    }
 
-            renderList();
-        }
+    items = data || [];
+    renderList();
+}
 
-        function renderList() {
-            const list = document.getElementById("itemList");
-            list.innerHTML = "";
+/* 新增構件 */
+async function addItem() {
+    const id = newId.value.trim();
+    const pos = newPos.value.trim();
+    const w = newWeight.value.trim();
+    const q = newQty.value.trim();
+    const s = newSpec.value.trim();
+    const m = newMaterial.value.trim();
 
-            const keyword = search.value.trim().toLowerCase();
+    if (!id || !q) {
+        alert("至少需要填寫【構件編號】與【數量】");
+        return;
+    }
 
-            items
-                .filter(a => JSON.stringify(a).toLowerCase().includes(keyword))
-                .forEach((item, index) => {
-                const card = document.createElement("div");
-                card.className = "item-card";
+    const { error } = await db.from("components_library").insert({
+        item_id: id,
+        position: pos,
+        weight: w,
+        qty: Number(q),
+        spec: s,
+        material: m
+    });
 
-                card.innerHTML = `
-                    <div class="item-head">${item.id}</div>
-                    <div class="item-sub">${item.spec || "-"}　|　位置：${item.pos || "-"}　|　重量：${item.weight || "-"}　|　數量：${item.qty}</div>
+    if (error) {
+        alert("新增失敗：" + error.message);
+        return;
+    }
 
-                    <div class="row">
-                        <select class="select-box" onchange="updateStatus(${index}, this.value)">
-                            <option ${item.status === "未進料" ? "selected" : ""}>未進料</option>
-                            <option ${item.status === "預定中" ? "selected" : ""}>預定中</option>
-                            <option ${item.status === "已進料" ? "selected" : ""}>已進料</option>
-                            <option ${item.status === "已使用" ? "selected" : ""}>已使用</option>
-                        </select>
+    newId.value = "";
+    newPos.value = "";
+    newWeight.value = "";
+    newQty.value = "";
+    newSpec.value = "";
+    newMaterial.value = "";
 
-                        <div class="btn-update" onclick="saveItem(${index})">更新</div>
-                        <div class="btn-delete" onclick="deleteItem(${index})">刪除</div>
-                    </div>
-                `;
+    loadItems();
+}
 
-                list.appendChild(card);
-            });
-        }
+/* 渲染構件列表 */
+function renderList() {
+    const list = document.getElementById("itemList");
+    list.innerHTML = "";
 
-        function updateStatus(i, status) {
-            items[i].status = status;
-        }
+    const keyword = search.value.trim().toLowerCase();
 
-        function saveItem(i) {
-            alert("已更新構件狀態。");
-        }
+    items
+        .filter(a => JSON.stringify(a).toLowerCase().includes(keyword))
+        .forEach((item) => {
 
-        function deleteItem(i) {
-            if (!confirm("確定刪除此構件？")) return;
-            items.splice(i, 1);
-            renderList();
-        }
+        const card = document.createElement("div");
+        card.className = "item-card";
 
-        renderList();
-    </script>
+        card.innerHTML = `
+            <div class="item-head">${item.item_id}</div>
+            <div class="item-sub">
+                規格：${item.spec || "-"}　|　
+                材質：${item.material || "-"}　|　
+                位置：${item.position || "-"}　|　
+                重量：${item.weight || "-"}　|　
+                數量：${item.qty}
+            </div>
+
+            <div class="row">
+                <input class="edit-box" id="pos_${item.id}" placeholder="位置" value="${item.position || ""}">
+                <input class="edit-box" id="w_${item.id}" placeholder="重量" value="${item.weight || ""}">
+                <input class="edit-box" id="q_${item.id}" placeholder="數量" value="${item.qty}">
+            </div>
+
+            <div class="row">
+                <input class="edit-box" id="s_${item.id}" placeholder="規格" value="${item.spec || ""}">
+                <input class="edit-box" id="m_${item.id}" placeholder="材質" value="${item.material || ""}">
+            </div>
+
+            <div class="row">
+                <div class="btn-update" onclick="saveItem(${item.id})">更新</div>
+                <div class="btn-delete" onclick="deleteItem(${item.id})">刪除</div>
+            </div>
+        `;
+
+        list.appendChild(card);
+    });
+}
+
+/* 更新構件 */
+async function saveItem(id) {
+
+    const pos = document.getElementById(`pos_${id}`).value.trim();
+    const w   = document.getElementById(`w_${id}`).value.trim();
+    const q   = Number(document.getElementById(`q_${id}`).value.trim());
+    const s   = document.getElementById(`s_${id}`).value.trim();
+    const m   = document.getElementById(`m_${id}`).value.trim();
+
+    const { error } = await db
+        .from("components_library")
+        .update({
+            position: pos,
+            weight: w,
+            qty: q,
+            spec: s,
+            material: m
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("更新失敗：" + error.message);
+        return;
+    }
+
+    alert("已更新構件資料。");
+    loadItems();
+}
+
+/* 刪除構件 */
+async function deleteItem(id) {
+    if (!confirm("確定要刪除此構件嗎？")) return;
+
+    const { error } = await db.from("components_library").delete().eq("id", id);
+
+    if (error) {
+        alert("刪除失敗：" + error.message);
+        return;
+    }
+
+    loadItems();
+}
+
+/* INIT */
+loadItems();
+</script>
 
 </body>
 </html>
