@@ -89,6 +89,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ============================================
+   Supabase 初始化
+============================================ */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
@@ -98,45 +101,55 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let rawList = [];
 const itemList = document.getElementById("itemList");
 
-/* ============================================================
-   Step 1：讀取已收貨但尚未使用完的資料
-   status = 'received'
-   planned_qty > 0
-============================================================ */
+
+
+/* ============================================
+   Step 1：讀取所有「可使用的構件」
+   可使用量 = received_qty - used_qty > 0
+============================================ */
 async function loadData() {
 
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
-        .eq("status", "received")
-        .gt("planned_qty", 0);
+        .order("planned_date");
 
     if (!plan) return;
+
+    const usable = plan.filter(p =>
+        (p.received_qty || 0) - (p.used_qty || 0) > 0
+    );
 
     const { data: comp } = await db
         .from("components_library")
         .select("*");
 
-    rawList = plan.map(p => {
+    rawList = usable.map(p => {
         const match = comp.find(c => c.item_id === p.item_id);
         return {
             ...p,
             spec: match?.spec || "",
             material: match?.material || "",
             weight: match?.weight || "",
+            posList: comp.filter(x=>x.item_id===p.item_id).map(x=>x.position)
         };
     });
 
     render(rawList);
 }
 
-/* ============================================================
+
+
+/* ============================================
    Step 2：畫面渲染
-============================================================ */
+============================================ */
 function render(list) {
     itemList.innerHTML = "";
 
     list.forEach(p => {
+
+        const remain = (p.received_qty || 0) - (p.used_qty || 0);
+
         const card = document.createElement("div");
         card.className = "card";
         card.id = "card_" + p.id;
@@ -145,15 +158,16 @@ function render(list) {
         header.className = "card-header";
 
         const title = document.createElement("div");
-        title.textContent = `${p.item_id}（${p.position}）`;
+        title.textContent = `${p.item_id}`;
 
-        const remain = document.createElement("div");
-        remain.style.color = "#aaa";
-        remain.textContent = `剩餘：${p.planned_qty}`;
+        const remainEl = document.createElement("div");
+        remainEl.style.color = "#aaa";
+        remainEl.textContent = `可用：${remain}`;
 
-        header.appendChild(title);
-        header.appendChild(remain);
+        header.append(title, remainEl);
         card.appendChild(header);
+
+
 
         /* 數量調整 */
         const qtyBox = document.createElement("div");
@@ -178,11 +192,13 @@ function render(list) {
 
         btnPlus.onclick = () => {
             let v = parseInt(qtyNum.textContent);
-            if (v < p.planned_qty) qtyNum.textContent = v + 1;
+            if (v < remain) qtyNum.textContent = v + 1;
         };
 
         qtyBox.append(btnMinus, qtyNum, btnPlus);
         card.appendChild(qtyBox);
+
+
 
         /* 展開詳細 */
         const toggle = document.createElement("div");
@@ -209,6 +225,7 @@ function render(list) {
             }
         };
 
+
         /* 確認使用按鈕 */
         const useBtn = document.createElement("div");
         useBtn.className = "primary-mini";
@@ -220,53 +237,54 @@ function render(list) {
     });
 }
 
-/* ============================================================
+
+
+/* ============================================
    Step 3：確認使用
-   寫入 today_usage（不是 today_records）
-============================================================ */
+============================================ */
 async function confirmUse(item, amount) {
 
-    // 1) 寫入 today_usage
+    /* 1) 寫入 today_usage */
     await db.from("today_usage").insert({
         planned_id: item.id,
         item_id: item.item_id,
-        position: item.position,
         qty: amount,
-        used_at: new Date().toISOString(),
-        note: null
+        used_at: new Date().toISOString()
     });
 
-    // 2) 更新 planned_items 中的剩餘數量
+    /* 2) 更新 planned_items.used_qty */
     await db
         .from("planned_items")
         .update({
-            planned_qty: item.planned_qty - amount
+            used_qty: (item.used_qty || 0) + amount
         })
         .eq("id", item.id);
 
-    // 3) 更新畫面
-    if (item.planned_qty - amount <= 0) {
-        document.getElementById("card_" + item.id)?.remove();
-    }
-
+    /* 3) 重新整理畫面 */
     await loadData();
 }
 
-/* ============================================================
+
+
+/* ============================================
    Step 4：搜尋
-============================================================ */
+============================================ */
 document.getElementById("searchBox").addEventListener("input", (e)=>{
     const q = e.target.value.trim().toLowerCase();
 
     const filtered = rawList.filter(p =>
         p.item_id.toLowerCase().includes(q) ||
-        (p.spec || "").toLowerCase().includes(q) ||
-        (p.position || "").toLowerCase().includes(q)
+        (p.spec || "").toLowerCase().includes(q)
     );
 
     render(filtered);
 });
 
+
+
+/* ============================================
+   初始化
+============================================ */
 loadData();
 </script>
 </body>
