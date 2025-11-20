@@ -45,11 +45,13 @@
 
 <body>
 
+<!-- 頂部列 -->
 <div class="top-bar">
     <div class="top-bar-title">預計進料登記</div>
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
+<!-- 輸入 -->
 <div class="screen-card">
 
     <div class="section-title">構件編號</div>
@@ -66,6 +68,7 @@
     </button>
 </div>
 
+<!-- 清單 -->
 <div class="screen-card">
     <div class="section-title">目前預計進料清單</div>
 
@@ -98,7 +101,7 @@ const loadMessage    = document.getElementById("loadMessage");
 
 
 /* ============================================================
-   Step 1：載入資料（預計進料 + 構件庫資料）
+   Step 1：載入資料
 ============================================================ */
 async function loadMeta() {
 
@@ -115,7 +118,7 @@ async function loadMeta() {
 
 
 /* ============================================================
-   Step 2：渲染預計進料列表
+   Step 2：渲染清單
 ============================================================ */
 function renderPlanList() {
     planList.innerHTML = "";
@@ -129,7 +132,6 @@ function renderPlanList() {
 
     plans.forEach(p => {
 
-        /* 標頭日期 */
         if (p.planned_date !== lastDate) {
             const dateHeader = document.createElement("div");
             dateHeader.className = "section-title";
@@ -143,7 +145,7 @@ function renderPlanList() {
         card.className = "plan-card";
         card.id = "card_" + p.id;
 
-        /* === 卡片 Header === */
+        /* 卡頭 */
         const head = document.createElement("div");
         head.className = "plan-header";
 
@@ -159,7 +161,7 @@ function renderPlanList() {
         head.append(title, dateLabel);
         card.appendChild(head);
 
-        /* 預計 / 已收 */
+        /* 顯示數量 */
         const qtyInfo = document.createElement("div");
         qtyInfo.style.marginTop="6px";
         qtyInfo.style.color="#ccc";
@@ -167,7 +169,7 @@ function renderPlanList() {
             `預計：${p.planned_qty}　已收：${p.received_qty || 0}`;
         card.appendChild(qtyInfo);
 
-        /* 若已收完 → 不需要位置選單 */
+        /* 全數收貨 → 不需再選位置 */
         if ((p.received_qty || 0) >= p.planned_qty) {
             const done = document.createElement("div");
             done.style.color="#70d470";
@@ -179,8 +181,8 @@ function renderPlanList() {
             return;
         }
 
-        /* 位置選項 */
-        const positions = components
+        /* 位置選單 */
+        const posList = components
             .filter(c => c.item_id === p.item_id)
             .map(c => c.position)
             .filter(Boolean);
@@ -193,9 +195,10 @@ function renderPlanList() {
         opt0.textContent="選擇位置";
         select.appendChild(opt0);
 
-        positions.forEach(pos=>{
+        posList.forEach(pos => {
             const o=document.createElement("option");
-            o.value=pos; o.textContent=pos;
+            o.value=pos;
+            o.textContent=pos;
             select.appendChild(o);
         });
 
@@ -226,7 +229,7 @@ function renderPlanList() {
 
 
 /* ============================================================
-   Step 3：新增預計進料
+   Step 3：新增資料
 ============================================================ */
 document.getElementById("submitBtn").onclick = async () => {
 
@@ -237,15 +240,13 @@ document.getElementById("submitBtn").onclick = async () => {
     if (!id)   return alert("請輸入構件編號");
     if (!date) return alert("請選擇日期");
 
-    const { error } = await db.from("planned_items").insert({
+    await db.from("planned_items").insert({
         item_id: id,
         planned_date: date,
         planned_qty: qty,
         received_qty: 0,
         used_qty: 0
     });
-
-    if (error) return alert("新增失敗：" + error.message);
 
     itemIdInput.value="";
     qtyInput.value="1";
@@ -256,7 +257,7 @@ document.getElementById("submitBtn").onclick = async () => {
 
 
 /* ============================================================
-   Step 4：標記已收（+1）
+   Step 4：標記已收（關鍵）
 ============================================================ */
 async function markReceived(p, select) {
 
@@ -264,7 +265,7 @@ async function markReceived(p, select) {
 
     const pos = select.value;
 
-    /* 1) 寫入 today_records */
+    /* 1) 寫入 today_records（記錄收貨） */
     await db.from("today_records").insert({
         planned_id: p.id,
         item_id: p.item_id,
@@ -280,6 +281,7 @@ async function markReceived(p, select) {
         .update({ received_qty: (p.received_qty || 0) + 1 })
         .eq("id", p.id);
 
+    /* 3) 更新畫面 */
     await loadMeta();
     renderPlanList();
 }
