@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* 卡片樣式（沿用你的深色風格） */
 .plan-card {
     background:#1c2433;
     padding:16px;
@@ -15,7 +14,6 @@
     border-radius:14px;
     color:#fff;
 }
-
 .plan-header {
     display:flex;
     justify-content:space-between;
@@ -33,139 +31,41 @@
     border:1px solid #2a2f3a;
 }
 
-/* Loading */
-#loadingSpinner {
-    display:none;
-    text-align:center;
-    padding:16px;
-}
-#loadingSpinner svg {
-    width:28px;
-    height:28px;
-    animation: spin 0.9s linear infinite;
-}
+#loadingSpinner { display:none;text-align:center;padding:16px; }
+#loadingSpinner svg { width:28px;height:28px;animation: spin 0.9s linear infinite; }
+
 @keyframes spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
 }
 
-#loadMessage {
-    display:none;
-    color:#aaa;
-    text-align:center;
-    padding:16px;
-}
-
-/* ===== 深色小型彈出日曆 ===== */
-#calendarOverlay {
-    position: fixed;
-    inset: 0;
-    display: none;
-    z-index: 2000;
-}
-
-#calendarPanel {
-    position:absolute;
-    background:#1c2433;
-    padding:14px;
-    border-radius:16px;
-    box-shadow:0 10px 30px rgba(0,0,0,.7);
-    width:280px;
-    color:#fff;
-    font-size:14px;
-    animation: calFadeIn .18s ease-out;
-}
-
-@keyframes calFadeIn {
-    from { opacity:0; transform:scale(.95); }
-    to   { opacity:1; transform:scale(1); }
-}
-
-.calendar-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:10px;
-}
-
-.calendar-header-title {
-    font-weight:600;
-}
-
-.cal-nav-btn {
-    background:#2f7dff;
-    border-radius:999px;
-    padding:4px 10px;
-    font-size:13px;
-}
-
-.calendar-grid {
-    display:grid;
-    grid-template-columns:repeat(7,1fr);
-    gap:6px;
-}
-
-.day-name {
-    text-align:center;
-    color:#9aa0a6;
-    font-size:12px;
-}
-
-.day-cell {
-    text-align:center;
-    padding:7px 0;
-    border-radius:10px;
-    background:#141a28;
-    cursor:pointer;
-    font-size:13px;
-}
-
-.day-cell:hover {
-    background:#2f7dff;
-}
-
-.day-disabled {
-    opacity:.15;
-    pointer-events:none;
-}
+#loadMessage { display:none;color:#aaa;text-align:center;padding:16px; }
 </style>
 </head>
 
 <body>
 
-<!-- 頂部列 -->
 <div class="top-bar">
     <div class="top-bar-title">預計進料登記</div>
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-<!-- 輸入區 -->
 <div class="screen-card">
 
     <div class="section-title">構件編號</div>
     <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
 
     <div class="section-title">預計到貨日期</div>
-    <input id="dateInput"
-           class="input-bar"
-           placeholder="點擊選擇日期"
-           readonly
-           style="cursor:pointer;background:#1c2433;">
+    <input id="dateInput" class="input-bar" placeholder="點擊選擇日期">
 
     <div class="section-title">預計數量</div>
-    <input id="qtyInput"
-           class="input-bar"
-           value="1"
-           type="number"
-           min="1"
-           style="background:#1c2433;color:#fff;">
+    <input id="qtyInput" class="input-bar" value="1" type="number" min="1">
 
     <button id="submitBtn" class="primary-btn full" style="margin-top:12px;">
         送出
     </button>
 </div>
 
-<!-- 清單區 -->
 <div class="screen-card">
     <div class="section-title">目前預計進料清單</div>
 
@@ -180,350 +80,230 @@
     <div id="loadMessage">已載入全部資料</div>
 </div>
 
-<!-- 小型深色日曆（覆蓋層 + 面板） -->
-<div id="calendarOverlay">
-    <div id="calendarPanel">
-        <div class="calendar-header">
-            <button id="calPrev" class="cal-nav-btn">〈</button>
-            <div id="calTitle" class="calendar-header-title">2025 / 01</div>
-            <button id="calNext" class="cal-nav-btn">〉</button>
-        </div>
-        <div id="calendarGrid" class="calendar-grid"></div>
-    </div>
-</div>
-
-<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
-/* ==========================================
-   🔧 Supabase 初始化
-========================================== */
+/* Supabase */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ==========================================
-   📌 全域資料
-========================================== */
 let plans = [];
 let components = [];
-let usedPositions = {};
 
-const planList       = document.getElementById("planList");
+const planList = document.getElementById("planList");
 const loadingSpinner = document.getElementById("loadingSpinner");
 const loadMessage    = document.getElementById("loadMessage");
 
-/* ==========================================
-   深色小日曆：UI 控制
-========================================== */
-const dateInput   = document.getElementById("dateInput");
-const calOverlay  = document.getElementById("calendarOverlay");
-const calPanel    = document.getElementById("calendarPanel");
-const calGrid     = document.getElementById("calendarGrid");
-const calTitle    = document.getElementById("calTitle");
-const calPrevBtn  = document.getElementById("calPrev");
-const calNextBtn  = document.getElementById("calNext");
 
-let calCurrent = new Date();
-calCurrent.setDate(1);
-
-/* 打開日曆 */
-function openCalendar() {
-    const rect = dateInput.getBoundingClientRect();
-    calOverlay.style.display = "block";
-
-    const panelWidth = 280;
-    let left = rect.left + window.scrollX;
-    const top  = rect.bottom + window.scrollY + 6;
-
-    if (left + panelWidth + 8 > window.innerWidth + window.scrollX) {
-        left = window.innerWidth + window.scrollX - panelWidth - 8;
-    }
-
-    calPanel.style.top  = top + "px";
-    calPanel.style.left = left + "px";
-
-    renderCalendar();
-}
-
-function closeCalendar() { calOverlay.style.display = "none"; }
-
-dateInput.addEventListener("click", openCalendar);
-calOverlay.addEventListener("click", e=>{ if(e.target===calOverlay) closeCalendar(); });
-
-calPrevBtn.addEventListener("click", ()=>{ calCurrent.setMonth(calCurrent.getMonth()-1); renderCalendar(); });
-calNextBtn.addEventListener("click", ()=>{ calCurrent.setMonth(calCurrent.getMonth()+1); renderCalendar(); });
-
-function renderCalendar() {
-    calGrid.innerHTML = "";
-
-    const year  = calCurrent.getFullYear();
-    const month = calCurrent.getMonth();
-
-    calTitle.textContent = `${year} / ${String(month+1).padStart(2,"0")}`;
-
-    const first = new Date(year, month, 1);
-    const last  = new Date(year, month+1, 0);
-
-    const firstWeekDay = first.getDay();
-    const daysInMonth  = last.getDate();
-
-    const names = ["日","一","二","三","四","五","六"];
-    names.forEach(n=>{
-        const e=document.createElement("div");
-        e.className="day-name";
-        e.textContent=n;
-        calGrid.appendChild(e);
-    });
-
-    for (let i=0;i<firstWeekDay;i++) {
-        const blank=document.createElement("div");
-        blank.className="day-cell day-disabled";
-        calGrid.appendChild(blank);
-    }
-
-    for (let d=1;d<=daysInMonth;d++) {
-        const cell=document.createElement("div");
-        cell.className="day-cell";
-        cell.textContent=d;
-
-        cell.addEventListener("click",()=>{
-            const mm=String(month+1).padStart(2,"0");
-            const dd=String(d).padStart(2,"0");
-            dateInput.value = `${year}-${mm}-${dd}`;
-            closeCalendar();
-        });
-
-        calGrid.appendChild(cell);
-    }
-}
-
-/* ==========================================
-   Step 1：載入 DB 資料
-========================================== */
-async function loadMetaData() {
+/* ============================================================
+   Step 1：載入資料（預計進料 + 構件庫資料）
+============================================================ */
+async function loadMeta() {
 
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
-        .neq("status","received")
         .order("planned_date",{ ascending:true });
 
     plans = plan || [];
 
     const { data: comp } = await db.from("components_library").select("*");
     components = comp || [];
-
-    const { data: today } = await db
-        .from("today_records")
-        .select("item_id,position");
-
-    usedPositions = {};
-    (today||[]).forEach(r=>{
-        if(!usedPositions[r.item_id]) usedPositions[r.item_id]=new Set();
-        usedPositions[r.item_id].add(r.position);
-    });
 }
 
-/* ==========================================
-   Step 2：渲染清單
-========================================== */
+
+/* ============================================================
+   Step 2：渲染預計進料列表
+============================================================ */
 function renderPlanList() {
-    planList.innerHTML="";
-    loadMessage.style.display = plans.length ? "none" : "block";
+    planList.innerHTML = "";
+    if (!plans.length) {
+        loadMessage.style.display="block";
+        return;
+    }
+    loadMessage.style.display="none";
 
-    let lastDate=null;
+    let lastDate = null;
 
-    plans.forEach(p=>{
-        const dateText=p.planned_date||"";
+    plans.forEach(p => {
 
-        if(dateText!==lastDate){
-            const header=document.createElement("div");
-            header.className="section-title";
-            header.style.marginTop="14px";
-            header.textContent=dateText||"未填日期";
-            planList.appendChild(header);
-            lastDate=dateText;
+        /* 標頭日期 */
+        if (p.planned_date !== lastDate) {
+            const dateHeader = document.createElement("div");
+            dateHeader.className = "section-title";
+            dateHeader.style.marginTop = "14px";
+            dateHeader.textContent = p.planned_date || "未填日期";
+            planList.appendChild(dateHeader);
+            lastDate = p.planned_date;
         }
 
-        const card=document.createElement("div");
-        card.className="plan-card";
-        card.id="card_"+p.id;
+        const card = document.createElement("div");
+        card.className = "plan-card";
+        card.id = "card_" + p.id;
 
-        const headerRow=document.createElement("div");
-        headerRow.className="plan-header";
+        /* === 卡片 Header === */
+        const head = document.createElement("div");
+        head.className = "plan-header";
 
-        const title=document.createElement("div");
+        const title = document.createElement("div");
         title.style.fontSize="18px";
         title.style.fontWeight="700";
-        title.textContent=p.item_id;
+        title.textContent = p.item_id;
 
-        const dateLabel=document.createElement("div");
+        const dateLabel = document.createElement("div");
         dateLabel.style.color="#bbb";
-        dateLabel.textContent=dateText;
+        dateLabel.textContent = p.planned_date;
 
-        headerRow.appendChild(title);
-        headerRow.appendChild(dateLabel);
-        card.appendChild(headerRow);
+        head.append(title, dateLabel);
+        card.appendChild(head);
 
-        /* 顯示預計數量 */
-        const qtyRow=document.createElement("div");
-        qtyRow.style.fontSize="13px";
-        qtyRow.style.color="#ccc";
-        qtyRow.style.marginTop="4px";
-        qtyRow.textContent=`預計數量：${p.planned_qty ?? 1}`;
-        card.appendChild(qtyRow);
+        /* 預計 / 已收 */
+        const qtyInfo = document.createElement("div");
+        qtyInfo.style.marginTop="6px";
+        qtyInfo.style.color="#ccc";
+        qtyInfo.textContent =
+            `預計：${p.planned_qty}　已收：${p.received_qty || 0}`;
+        card.appendChild(qtyInfo);
 
-        /* 位置選單 */
-        const compList=components.filter(c=>c.item_id===p.item_id);
-        const allPositions=Array.from(new Set(
-            compList.map(c=>c.position).filter(Boolean)
-        ));
+        /* 若已收完 → 不需要位置選單 */
+        if ((p.received_qty || 0) >= p.planned_qty) {
+            const done = document.createElement("div");
+            done.style.color="#70d470";
+            done.style.marginTop="8px";
+            done.textContent="已全數收貨";
+            card.appendChild(done);
 
-        const usedSet=usedPositions[p.item_id] || new Set();
-        const availablePositions=allPositions.filter(pos=>!usedSet.has(pos));
-
-        let selectEl=null;
-
-        if(availablePositions.length>0){
-            selectEl=document.createElement("select");
-            selectEl.className="position-select";
-            selectEl.id="pos_"+p.id;
-
-            const opt0=document.createElement("option");
-            opt0.value="";
-            opt0.textContent="選擇位置";
-            selectEl.appendChild(opt0);
-
-            availablePositions.forEach(pos=>{
-                const opt=document.createElement("option");
-                opt.value=pos;
-                opt.textContent=pos;
-                selectEl.appendChild(opt);
-            });
-            card.appendChild(selectEl);
-        } else {
-            const tip=document.createElement("div");
-            tip.style.color="#aaa";
-            tip.style.fontSize="13px";
-            tip.style.marginTop="10px";
-            tip.textContent="此構件所有位置皆已標記收貨";
-            card.appendChild(tip);
+            planList.appendChild(card);
+            return;
         }
 
+        /* 位置選項 */
+        const positions = components
+            .filter(c => c.item_id === p.item_id)
+            .map(c => c.position)
+            .filter(Boolean);
+
+        const select = document.createElement("select");
+        select.className = "position-select";
+
+        const opt0 = document.createElement("option");
+        opt0.value="";
+        opt0.textContent="選擇位置";
+        select.appendChild(opt0);
+
+        positions.forEach(pos=>{
+            const o=document.createElement("option");
+            o.value=pos; o.textContent=pos;
+            select.appendChild(o);
+        });
+
+        card.appendChild(select);
+
         /* 按鈕列 */
-        const btnRow=document.createElement("div");
+        const btnRow = document.createElement("div");
         btnRow.style.display="flex";
         btnRow.style.marginTop="10px";
         btnRow.style.gap="10px";
 
-        const delBtn=document.createElement("button");
-        delBtn.className="danger-btn";
-        delBtn.textContent="刪除";
-        delBtn.addEventListener("click",()=>deletePlan(p.id));
+        const del = document.createElement("button");
+        del.className="danger-btn";
+        del.textContent="刪除";
+        del.onclick=()=>deletePlan(p.id);
 
-        const recvBtn=document.createElement("button");
-        recvBtn.className="primary-btn";
-        recvBtn.textContent="標記已收";
-        recvBtn.addEventListener("click",()=>markReceived(p.id,p.item_id));
+        const recv = document.createElement("button");
+        recv.className="primary-btn";
+        recv.textContent="標記已收";
+        recv.onclick=()=>markReceived(p, select);
 
-        btnRow.appendChild(delBtn);
-        btnRow.appendChild(recvBtn);
+        btnRow.append(del, recv);
         card.appendChild(btnRow);
 
         planList.appendChild(card);
     });
 }
 
-/* ==========================================
-   Step 3：送出預計進料
-========================================== */
-document.getElementById("submitBtn").addEventListener("click",async ()=>{
-    const itemId=document.getElementById("itemIdInput").value.trim();
-    const date=dateInput.value.trim();
-    const qty=Number(document.getElementById("qtyInput").value||1);
 
-    if(!itemId) return alert("請輸入構件編號");
-    if(!date) return alert("請選擇預計到貨日期");
+/* ============================================================
+   Step 3：新增預計進料
+============================================================ */
+document.getElementById("submitBtn").onclick = async () => {
+
+    const id   = itemIdInput.value.trim();
+    const date = dateInput.value.trim();
+    const qty  = Number(qtyInput.value || 1);
+
+    if (!id)   return alert("請輸入構件編號");
+    if (!date) return alert("請選擇日期");
 
     const { error } = await db.from("planned_items").insert({
-        item_id:itemId,
-        planned_date:date,
-        planned_qty:qty,
-        status:"planned"
+        item_id: id,
+        planned_date: date,
+        planned_qty: qty,
+        received_qty: 0,
+        used_qty: 0
     });
 
-    if(error){
-        console.error(error);
-        alert("新增失敗："+error.message);
-        return;
-    }
+    if (error) return alert("新增失敗：" + error.message);
 
-    document.getElementById("itemIdInput").value="";
-    // 日期保留
-    document.getElementById("qtyInput").value="1";
+    itemIdInput.value="";
+    qtyInput.value="1";
 
-    await loadMetaData();
+    await loadMeta();
     renderPlanList();
-});
+};
 
-/* ==========================================
-   Step 4：標記已收
-========================================== */
-async function markReceived(id,itemId){
-    const sel=document.getElementById("pos_"+id);
-    if(!sel||!sel.value){
-        alert("請先選擇位置");
-        return;
-    }
 
-    const pos=sel.value;
-    if(!confirm(`確定將 ${itemId}（${pos}）標記為已收貨？`)) return;
+/* ============================================================
+   Step 4：標記已收（+1）
+============================================================ */
+async function markReceived(p, select) {
 
-    const nowIso=new Date().toISOString();
+    if (!select.value) return alert("請先選擇位置");
 
-    const { error:e1 }=await db.from("today_records").insert({
-        item_id:itemId,
-        position:pos,
-        status:"received",
-        used_at:nowIso
+    const pos = select.value;
+
+    /* 1) 寫入 today_records */
+    await db.from("today_records").insert({
+        planned_id: p.id,
+        item_id: p.item_id,
+        position: pos,
+        qty: 1,
+        action: "received",
+        used_at: new Date().toISOString()
     });
-    if(e1){ alert("寫入 today_records 失敗"); return;}
 
-    const { error:e2 }=await db
+    /* 2) 更新 planned_items.received_qty */
+    await db
         .from("planned_items")
-        .update({ status:"received", position:pos })
-        .eq("id",id);
+        .update({ received_qty: (p.received_qty || 0) + 1 })
+        .eq("id", p.id);
 
-    if(e2){ alert("更新 planned_items 失敗"); return;}
-
-    await loadMetaData();
+    await loadMeta();
     renderPlanList();
-    alert("已標記為已收貨");
 }
 
-/* ==========================================
+
+/* ============================================================
    Step 5：刪除
-========================================== */
-async function deletePlan(id){
-    if(!confirm("確定要刪除此預計進料嗎？")) return;
+============================================================ */
+async function deletePlan(id) {
+    if (!confirm("確定要刪除？")) return;
 
-    const { error }=await db.from("planned_items").delete().eq("id",id);
-    if(error){ alert("刪除失敗"); return;}
+    await db.from("planned_items").delete().eq("id", id);
 
-    await loadMetaData();
+    await loadMeta();
     renderPlanList();
 }
 
-/* ==========================================
-   🚀 初始化
-========================================== */
+
+/* ============================================================
+   初始化
+============================================================ */
 (async ()=>{
     loadingSpinner.style.display="block";
-    await loadMetaData();
+    await loadMeta();
     loadingSpinner.style.display="none";
     renderPlanList();
 })();
