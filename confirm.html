@@ -99,12 +99,16 @@ let rawList = [];
 const itemList = document.getElementById("itemList");
 
 /* ============================================================
-   Step 1：讀取 planned_items（僅限有 planned_qty 的）
+   Step 1：讀取已收貨但尚未使用完的資料
+   status = 'received'
+   planned_qty > 0
 ============================================================ */
 async function loadData() {
+
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
+        .eq("status", "received")
         .gt("planned_qty", 0);
 
     if (!plan) return;
@@ -145,7 +149,7 @@ function render(list) {
 
         const remain = document.createElement("div");
         remain.style.color = "#aaa";
-        remain.textContent = `剩餘 ${p.planned_qty}`;
+        remain.textContent = `剩餘：${p.planned_qty}`;
 
         header.appendChild(title);
         header.appendChild(remain);
@@ -209,7 +213,7 @@ function render(list) {
         const useBtn = document.createElement("div");
         useBtn.className = "primary-mini";
         useBtn.textContent = "確認使用";
-        useBtn.onclick = () => confirmUse(p, qtyNum.textContent);
+        useBtn.onclick = () => confirmUse(p, parseInt(qtyNum.textContent));
         card.appendChild(useBtn);
 
         itemList.appendChild(card);
@@ -217,22 +221,22 @@ function render(list) {
 }
 
 /* ============================================================
-   Step 3：確認使用（不跳頁）
+   Step 3：確認使用
+   寫入 today_usage（不是 today_records）
 ============================================================ */
-async function confirmUse(item, qty) {
+async function confirmUse(item, amount) {
 
-    const amount = parseInt(qty);
-
-    // 1) 新增使用紀錄
-    await db.from("today_records").insert({
+    // 1) 寫入 today_usage
+    await db.from("today_usage").insert({
+        planned_id: item.id,
         item_id: item.item_id,
         position: item.position,
-        status: "used",
         qty: amount,
-        used_at: new Date().toISOString()
+        used_at: new Date().toISOString(),
+        note: null
     });
 
-    // 2) 更新 planned_items.planned_qty
+    // 2) 更新 planned_items 中的剩餘數量
     await db
         .from("planned_items")
         .update({
@@ -240,16 +244,12 @@ async function confirmUse(item, qty) {
         })
         .eq("id", item.id);
 
-    // 3) 更新畫面（不跳頁）
+    // 3) 更新畫面
     if (item.planned_qty - amount <= 0) {
-        // 數量用完 → 移除卡片
-        const card = document.getElementById("card_" + item.id);
-        if (card) card.remove();
-    } else {
-        // 更新剩餘量
-        item.planned_qty -= amount;
-        render(rawList.filter(x => x.planned_qty > 0));
+        document.getElementById("card_" + item.id)?.remove();
     }
+
+    await loadData();
 }
 
 /* ============================================================
