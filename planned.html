@@ -31,7 +31,6 @@
     border:1px solid #2a2f3a;
 }
 
-/* Loading */
 #loadingSpinner { display:none;text-align:center;padding:16px; }
 #loadingSpinner svg { width:28px;height:28px;animation: spin 0.9s linear infinite; }
 
@@ -161,12 +160,12 @@
         <div id="calendarGrid" class="calendar-grid"></div>
     </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ===== Supabase ===== */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY =
-"YOUR_KEY";   /* ← 自己放回去 */
+const SUPABASE_KEY = "YOUR_KEY";   /* ← 請自行填回 */
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let plans = [];
@@ -204,15 +203,9 @@ calOverlay.addEventListener("click", e=>{
     if (e.target === calOverlay) calOverlay.style.display="none";
 });
 
-/* 日曆前/後月份 */
-calPrev.onclick = ()=>{
-    calCurrent.setMonth(calCurrent.getMonth()-1);
-    renderCalendar();
-};
-calNext.onclick = ()=>{
-    calCurrent.setMonth(calCurrent.getMonth()+1);
-    renderCalendar();
-};
+/* 前/後月份 */
+calPrev.onclick = ()=>{ calCurrent.setMonth(calCurrent.getMonth()-1); renderCalendar(); };
+calNext.onclick = ()=>{ calCurrent.setMonth(calCurrent.getMonth()+1); renderCalendar(); };
 
 /* ===== 小日曆渲染 ===== */
 function renderCalendar(){
@@ -259,12 +252,12 @@ function renderCalendar(){
     }
 }
 
-
 /* ===== Step 1：讀取 DB ===== */
 async function loadMeta(){
     const { data: plan } = await db
         .from("planned_items")
         .select("*")
+        .eq("status","planned")
         .order("planned_date",{ ascending:true });
 
     plans = plan || [];
@@ -272,7 +265,6 @@ async function loadMeta(){
     const { data: comp } = await db.from("components_library").select("*");
     components = comp || [];
 }
-
 
 /* ===== Step 2：渲染列表 ===== */
 function renderPlanList(){
@@ -303,7 +295,7 @@ function renderPlanList(){
             </div>
         `;
 
-        /* 全數收完 */
+        /* 已收完 */
         if(p.received_qty >= p.planned_qty){
             const done=document.createElement("div");
             done.style.color="#70d470";
@@ -338,7 +330,7 @@ function renderPlanList(){
 
         card.appendChild(select);
 
-        /* 按鈕 */
+        /* 標記已收 */
         const recv=document.createElement("button");
         recv.className="primary-btn";
         recv.style.marginTop="10px";
@@ -351,8 +343,7 @@ function renderPlanList(){
     });
 }
 
-
-/* ===== Step 3：送出預計進料 ===== */
+/* ===== Step 3：新增預計進料 ===== */
 submitBtn.onclick = async ()=>{
     const id = itemIdInput.value.trim();
     const date = dateInput.value.trim();
@@ -366,7 +357,8 @@ submitBtn.onclick = async ()=>{
         planned_date:date,
         planned_qty:qty,
         received_qty:0,
-        used_qty:0
+        used_qty:0,
+        status:"planned"
     });
 
     itemIdInput.value="";
@@ -375,7 +367,6 @@ submitBtn.onclick = async ()=>{
     await loadMeta();
     renderPlanList();
 };
-
 
 /* ===== Step 4：標記已收 ===== */
 async function markReceived(p, select){
@@ -394,16 +385,18 @@ async function markReceived(p, select){
         used_at:new Date().toISOString()
     });
 
-    /* 更新已收數量 */
+    /* 更新已收數量 + 狀態改為 received */
     await db
         .from("planned_items")
-        .update({ received_qty: p.received_qty + 1 })
+        .update({
+            received_qty: p.received_qty + 1,
+            status: "received"
+        })
         .eq("id", p.id);
 
     await loadMeta();
     renderPlanList();
 }
-
 
 /* ===== 初始化 ===== */
 (async()=>{
