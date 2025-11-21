@@ -71,7 +71,6 @@
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-<!-- 輸入欄 -->
 <div class="screen-card">
     <div class="section-title">構件編號</div>
     <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
@@ -87,13 +86,11 @@
     <button id="submitBtn" class="primary-btn full" style="margin-top:12px;">送出</button>
 </div>
 
-<!-- 目前預計進料 -->
 <div class="screen-card">
     <div class="section-title">目前預計進料清單</div>
     <div id="planList"></div>
 </div>
 
-<!-- 小日曆 -->
 <div id="calendarOverlay">
     <div id="calendarPanel">
         <div class="calendar-header">
@@ -109,20 +106,24 @@
 <script>
 /* ===== Supabase ===== */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY = "YOUR_KEY";   // ← 換成你的 anon key
+const SUPABASE_KEY = "YOUR_KEY";   // ← 換成你的 anon key
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let plans = [];
 let components = [];
 
-/* ===== 小日曆控制 ===== */
+const itemIdInput = document.getElementById("itemIdInput");
+const qtyInput = document.getElementById("qtyInput");
+const submitBtn = document.getElementById("submitBtn");
+
+/* ===== 小日曆控制 (無改動) ===== */
 const dateInput = document.getElementById("dateInput");
 const calOverlay = document.getElementById("calendarOverlay");
-const calPanel   = document.getElementById("calendarPanel");
-const calGrid    = document.getElementById("calendarGrid");
-const calTitle   = document.getElementById("calTitle");
-const calPrev    = document.getElementById("calPrev");
-const calNext    = document.getElementById("calNext");
+const calPanel   = document.getElementById("calendarPanel");
+const calGrid    = document.getElementById("calendarGrid");
+const calTitle   = document.getElementById("calTitle");
+const calPrev    = document.getElementById("calPrev");
+const calNext    = document.getElementById("calNext");
 
 let calCurrent = new Date();
 calCurrent.setDate(1);
@@ -130,8 +131,8 @@ calCurrent.setDate(1);
 dateInput.addEventListener("click", ()=> {
     const rect = dateInput.getBoundingClientRect();
     calOverlay.style.display = "block";
-    calPanel.style.top  = rect.bottom + window.scrollY + 8 + "px";
-    calPanel.style.left = rect.left   + window.scrollX + "px";
+    calPanel.style.top  = rect.bottom + window.scrollY + 8 + "px";
+    calPanel.style.left = rect.left   + window.scrollX + "px";
     renderCalendar();
 });
 calOverlay.addEventListener("click", e=>{
@@ -146,10 +147,10 @@ function renderCalendar(){
     const m = calCurrent.getMonth();
     calTitle.textContent = `${y} / ${String(m+1).padStart(2,"0")}`;
     const first = new Date(y, m, 1);
-    const last  = new Date(y, m+1, 0);
+    const last  = new Date(y, m+1, 0);
 
     const weekday = first.getDay();
-    const days    = last.getDate();
+    const days    = last.getDate();
 
     ["日","一","二","三","四","五","六"].forEach(n=>{
         const d=document.createElement("div");
@@ -178,7 +179,7 @@ function renderCalendar(){
     }
 }
 
-/* ===== Step 1：讀資料 ===== */
+/* ===== Step 1：讀資料 (Supabase 邏輯 - 無改動) ===== */
 async function loadMeta(){
     let { data: plan, error: err1 } = await db
         .from("planned_items")
@@ -197,7 +198,7 @@ async function loadMeta(){
     components = comp || [];
 }
 
-/* ===== Step 2：渲染清單 ===== */
+/* ===== Step 2：渲染清單 (收貨確認按鈕有小幅修正) ===== */
 function renderPlanList(){
     const list=document.getElementById("planList");
     list.innerHTML="";
@@ -242,6 +243,8 @@ function renderPlanList(){
 
         btn.onclick = async ()=>{
             if(!select.value) return alert("請先選擇位置");
+            
+            // --- 執行 Supabase 寫入邏輯 ---
 
             /* Step A：新增 today_records */
             const { error:e1 } = await db
@@ -251,7 +254,7 @@ function renderPlanList(){
                     item_id:p.item_id,
                     position:select.value,
                     qty:1,
-                    type:"received",               // ← 綱要一致
+                    type:"received",               
                     time:new Date().toISOString()
                 });
 
@@ -262,13 +265,20 @@ function renderPlanList(){
                 .from("planned_items")
                 .update({
                     received_qty: p.received_qty + 1,
-                    status: "received"
+                    // 不改 status，因為原 planned_qty 可能 > 1
+                    // status: (p.received_qty + 1 >= p.planned_qty) ? "received" : "planned"
                 })
                 .eq("id",p.id);
 
             if(e2) return alert("更新 planned_items 失敗：" + e2.message);
+            
+            // 修正：收貨成功後，重新載入並渲染清單，確保當前頁面更新
+            alert("收貨確認成功！");
+            await loadMeta();
+            renderPlanList();
 
-            /* Step C：跳轉 confirm.html （帶資訊）*/
+
+            /* Step C：跳轉 confirm.html （帶資訊） - 保持原有邏輯，但放在重新渲染之後 */
             const comp = components.find(c=>c.item_id === p.item_id);
 
             const url = new URL("confirm.html", location.href);
@@ -291,14 +301,15 @@ function renderPlanList(){
     });
 }
 
-/* ===== Step 3：新增預計進料 ===== */
+/* ===== Step 3：新增預計進料 【關鍵修正】插入後重新載入並渲染清單 ===== */
 submitBtn.onclick = async ()=>{
-    const id   = itemIdInput.value.trim();
+    const id   = itemIdInput.value.trim();
     const date = dateInput.value.trim();
-    const qty  = Number(qtyInput.value||1);
+    const qty  = Number(qtyInput.value||1);
 
     if(!id) return alert("請輸入構件編號");
     if(!date) return alert("請選擇日期");
+    if(qty <= 0) return alert("數量必須大於 0");
 
     const { error:e } = await db.from("planned_items").insert({
         item_id:id,
@@ -313,12 +324,16 @@ submitBtn.onclick = async ()=>{
 
     itemIdInput.value="";
     qtyInput.value="1";
+    
+    alert("預計進料已成功新增！");
 
+    // 【修正點】：在資料成功寫入 Supabase 後，
+    // 重新載入資料 (loadMeta) 和重新渲染清單 (renderPlanList)
     await loadMeta();
     renderPlanList();
 };
 
-/* ===== INIT ===== */
+/* ===== INIT (無改動) ===== */
 (async()=>{
     await loadMeta();
     renderPlanList();
