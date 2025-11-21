@@ -104,9 +104,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ===== Supabase ===== */
+/* ===== Supabase (已更新您的金鑰) ===== */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY = "YOUR_KEY";   // ← 換成你的 anon key
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let plans = [];
@@ -179,7 +179,7 @@ function renderCalendar(){
     }
 }
 
-/* ===== Step 1：讀資料 (Supabase 邏輯 - 無改動) ===== */
+/* ===== Step 1：讀資料 (從 Supabase 讀取) ===== */
 async function loadMeta(){
     let { data: plan, error: err1 } = await db
         .from("planned_items")
@@ -198,7 +198,7 @@ async function loadMeta(){
     components = comp || [];
 }
 
-/* ===== Step 2：渲染清單 (收貨確認按鈕有小幅修正) ===== */
+/* ===== Step 2：渲染清單 (收貨確認後刷新) ===== */
 function renderPlanList(){
     const list=document.getElementById("planList");
     list.innerHTML="";
@@ -244,8 +244,6 @@ function renderPlanList(){
         btn.onclick = async ()=>{
             if(!select.value) return alert("請先選擇位置");
             
-            // --- 執行 Supabase 寫入邏輯 ---
-
             /* Step A：新增 today_records */
             const { error:e1 } = await db
                 .from("today_records")
@@ -265,20 +263,18 @@ function renderPlanList(){
                 .from("planned_items")
                 .update({
                     received_qty: p.received_qty + 1,
-                    // 不改 status，因為原 planned_qty 可能 > 1
-                    // status: (p.received_qty + 1 >= p.planned_qty) ? "received" : "planned"
                 })
                 .eq("id",p.id);
 
             if(e2) return alert("更新 planned_items 失敗：" + e2.message);
             
-            // 修正：收貨成功後，重新載入並渲染清單，確保當前頁面更新
+            // 【修正點】：收貨成功後，重新載入並渲染清單
             alert("收貨確認成功！");
             await loadMeta();
             renderPlanList();
 
 
-            /* Step C：跳轉 confirm.html （帶資訊） - 保持原有邏輯，但放在重新渲染之後 */
+            /* Step C：跳轉 confirm.html （帶資訊） */
             const comp = components.find(c=>c.item_id === p.item_id);
 
             const url = new URL("confirm.html", location.href);
@@ -301,7 +297,7 @@ function renderPlanList(){
     });
 }
 
-/* ===== Step 3：新增預計進料 【關鍵修正】插入後重新載入並渲染清單 ===== */
+/* ===== Step 3：新增預計進料 (送出後刷新清單) ===== */
 submitBtn.onclick = async ()=>{
     const id   = itemIdInput.value.trim();
     const date = dateInput.value.trim();
@@ -327,13 +323,12 @@ submitBtn.onclick = async ()=>{
     
     alert("預計進料已成功新增！");
 
-    // 【修正點】：在資料成功寫入 Supabase 後，
-    // 重新載入資料 (loadMeta) 和重新渲染清單 (renderPlanList)
+    // 【修正點】：在資料成功寫入 Supabase 後，重新載入並渲染清單
     await loadMeta();
     renderPlanList();
 };
 
-/* ===== INIT (無改動) ===== */
+/* ===== INIT (初始載入清單) ===== */
 (async()=>{
     await loadMeta();
     renderPlanList();
