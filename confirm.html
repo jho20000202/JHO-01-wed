@@ -7,66 +7,22 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-.card {
-    background:#1c2433;
-    padding:14px;
-    margin:10px 0;
-    border-radius:14px;
-    color:#fff;
-}
+.screen-card { background:#1c2433; padding:16px; border-radius:14px; color:#fff; margin:12px; }
 
-.card-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
+.item-title { font-size:22px; font-weight:700; margin-bottom:6px; }
+.item-sub { font-size:14px; color:#bbb; margin-bottom:10px; }
 
-.qty-box {
-    display:flex;
-    align-items:center;
-    gap:6px;
-}
-
+.qty-box { display:flex; gap:10px; align-items:center; margin:14px 0; }
 .qty-btn {
-    width:32px;
-    height:32px;
-    border-radius:10px;
-    background:#2f7dff;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    font-size:20px;
+    width:34px; height:34px; border-radius:12px; background:#2f7dff;
+    display:flex; justify-content:center; align-items:center; font-size:20px;
 }
+.qty-num { width:40px; text-align:center; font-size:18px; }
 
-.qty-num {
-    font-size:16px;
-    width:28px;
-    text-align:center;
-}
-
-.detail {
-    margin-top:10px;
-    padding-top:10px;
-    border-top:1px solid #2c3345;
-    font-size:14px;
-    color:#bbb;
-    display:none;
-}
-
-.toggle-detail {
-    font-size:13px;
-    color:#7ba4ff;
-    margin-top:6px;
-    cursor:pointer;
-}
-
-.primary-mini {
-    background:#2f7dff;
-    padding:10px;
-    border-radius:12px;
-    width:100%;
-    text-align:center;
-    margin-top:12px;
+.primary-btn {
+    width:100%; background:#2f7dff; padding:12px;
+    border-radius:12px; text-align:center; margin-top:18px;
+    color:#fff; font-size:16px;
 }
 </style>
 </head>
@@ -78,214 +34,120 @@
     <a href="index.html" class="top-btn">返回主畫面</a>
 </div>
 
-<div class="screen-card">
-    <div class="section-title">搜尋</div>
-    <input id="searchBox" class="input-bar" placeholder="搜尋：構件編號 / 規格 / 位置">
-</div>
-
-<div class="screen-card">
-    <div id="itemList"></div>
-</div>
+<div id="contentArea"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ============================================
-   Supabase 初始化
-============================================ */
+/* ===== Supabase ===== */
 const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
 const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let rawList = [];
-const itemList = document.getElementById("itemList");
+
+/* ===== 讀 URL 參數 ===== */
+const param = new URL(location.href).searchParams;
+
+const DATA = {
+    pid: param.get("pid"),
+    item_id: param.get("item_id"),
+    position: param.get("position"),
+    planned_date: param.get("planned_date"),
+    planned_qty: Number(param.get("planned_qty")),
+    received_qty: Number(param.get("received_qty")),
+    spec: param.get("spec"),
+    material: param.get("material"),
+    weight: param.get("weight")
+};
 
 
+/* ===== UI 渲染 ===== */
+function renderCard() {
 
-/* ============================================
-   Step 1：讀取所有「可使用的構件」
-   可使用量 = received_qty - used_qty > 0
-============================================ */
-async function loadData() {
+    const usable = DATA.received_qty - (DATA.used_qty || 0);
 
-    const { data: plan } = await db
-        .from("planned_items")
-        .select("*")
-        .order("planned_date");
+    document.getElementById("contentArea").innerHTML = `
+        <div class="screen-card">
+            <div class="item-title">${DATA.item_id}</div>
 
-    if (!plan) return;
+            <div class="item-sub">
+                位置：${DATA.position}<br>
+                預計：${DATA.planned_qty}　已收：${DATA.received_qty}<br>
+                規格：${DATA.spec || "-"}<br>
+                材質：${DATA.material || "-"}<br>
+                重量：${DATA.weight || "-"}
+            </div>
 
-    const usable = plan.filter(p =>
-        (p.received_qty || 0) - (p.used_qty || 0) > 0
-    );
+            <div>可使用數量：${usable}</div>
 
-    const { data: comp } = await db
-        .from("components_library")
-        .select("*");
+            <div class="qty-box">
+                <div id="btnMinus" class="qty-btn">−</div>
+                <div id="qtyNum" class="qty-num">1</div>
+                <div id="btnPlus" class="qty-btn">+</div>
+            </div>
 
-    rawList = usable.map(p => {
-        const match = comp.find(c => c.item_id === p.item_id);
-        return {
-            ...p,
-            spec: match?.spec || "",
-            material: match?.material || "",
-            weight: match?.weight || "",
-            posList: comp.filter(x=>x.item_id===p.item_id).map(x=>x.position)
-        };
-    });
+            <div id="confirmBtn" class="primary-btn">確認使用</div>
+        </div>
+    `;
 
-    render(rawList);
+    const qtyNum = document.getElementById("qtyNum");
+    const minus  = document.getElementById("btnMinus");
+    const plus   = document.getElementById("btnPlus");
+
+    minus.onclick = ()=>{
+        let v = Number(qtyNum.textContent);
+        if(v > 1) qtyNum.textContent = v-1;
+    };
+    plus.onclick = ()=>{
+        let v = Number(qtyNum.textContent);
+        if(v < usable) qtyNum.textContent = v+1;
+    };
+
+    document.getElementById("confirmBtn").onclick = ()=>{
+        confirmUse(Number(qtyNum.textContent));
+    };
 }
 
 
+/* ===== 寫入使用紀錄 ===== */
+async function confirmUse(amount) {
 
-/* ============================================
-   Step 2：畫面渲染
-============================================ */
-function render(list) {
-    itemList.innerHTML = "";
-
-    list.forEach(p => {
-
-        const remain = (p.received_qty || 0) - (p.used_qty || 0);
-
-        const card = document.createElement("div");
-        card.className = "card";
-        card.id = "card_" + p.id;
-
-        const header = document.createElement("div");
-        header.className = "card-header";
-
-        const title = document.createElement("div");
-        title.textContent = `${p.item_id}`;
-
-        const remainEl = document.createElement("div");
-        remainEl.style.color = "#aaa";
-        remainEl.textContent = `可用：${remain}`;
-
-        header.append(title, remainEl);
-        card.appendChild(header);
-
-
-
-        /* 數量調整 */
-        const qtyBox = document.createElement("div");
-        qtyBox.className = "qty-box";
-
-        const btnMinus = document.createElement("div");
-        btnMinus.className = "qty-btn";
-        btnMinus.textContent = "−";
-
-        const qtyNum = document.createElement("div");
-        qtyNum.className = "qty-num";
-        qtyNum.textContent = 1;
-
-        const btnPlus = document.createElement("div");
-        btnPlus.className = "qty-btn";
-        btnPlus.textContent = "+";
-
-        btnMinus.onclick = () => {
-            let v = parseInt(qtyNum.textContent);
-            if (v > 1) qtyNum.textContent = v - 1;
-        };
-
-        btnPlus.onclick = () => {
-            let v = parseInt(qtyNum.textContent);
-            if (v < remain) qtyNum.textContent = v + 1;
-        };
-
-        qtyBox.append(btnMinus, qtyNum, btnPlus);
-        card.appendChild(qtyBox);
-
-
-
-        /* 展開詳細 */
-        const toggle = document.createElement("div");
-        toggle.className = "toggle-detail";
-        toggle.textContent = "顯示詳細";
-        card.appendChild(toggle);
-
-        const detail = document.createElement("div");
-        detail.className = "detail";
-        detail.innerHTML = `
-            規格：${p.spec}<br>
-            材質：${p.material}<br>
-            重量：${p.weight}
-        `;
-        card.appendChild(detail);
-
-        toggle.onclick = () => {
-            if (detail.style.display === "block") {
-                detail.style.display = "none";
-                toggle.textContent = "顯示詳細";
-            } else {
-                detail.style.display = "block";
-                toggle.textContent = "隱藏詳細";
-            }
-        };
-
-
-        /* 確認使用按鈕 */
-        const useBtn = document.createElement("div");
-        useBtn.className = "primary-mini";
-        useBtn.textContent = "確認使用";
-        useBtn.onclick = () => confirmUse(p, parseInt(qtyNum.textContent));
-        card.appendChild(useBtn);
-
-        itemList.appendChild(card);
-    });
-}
-
-
-
-/* ============================================
-   Step 3：確認使用
-============================================ */
-async function confirmUse(item, amount) {
-
-    /* 1) 寫入 today_usage */
+    /* Step 1: 寫入 today_usage */
     await db.from("today_usage").insert({
-        planned_id: item.id,
-        item_id: item.item_id,
+        planned_id: DATA.pid,
+        item_id: DATA.item_id,
+        position: DATA.position,
         qty: amount,
         used_at: new Date().toISOString()
     });
 
-    /* 2) 更新 planned_items.used_qty */
-    await db
-        .from("planned_items")
+    /* Step 2: 更新 planned_items.used_qty */
+    await db.from("planned_items")
         .update({
-            used_qty: (item.used_qty || 0) + amount
+            used_qty: (DATA.used_qty || 0) + amount
         })
-        .eq("id", item.id);
+        .eq("id", DATA.pid);
 
-    /* 3) 重新整理畫面 */
-    await loadData();
+    /* Step 3: 跳回構件使用清單 */
+    location.href = "confirm.html"; // 若你要跳回使用頁，請改 library.html 或 index.html
 }
 
 
+/* ===== 初始化 ===== */
+(async()=>{
+    /* 從 DB 抓目前 used_qty */
+    const { data } = await db
+        .from("planned_items")
+        .select("used_qty")
+        .eq("id", DATA.pid)
+        .single();
 
-/* ============================================
-   Step 4：搜尋
-============================================ */
-document.getElementById("searchBox").addEventListener("input", (e)=>{
-    const q = e.target.value.trim().toLowerCase();
+    DATA.used_qty = data?.used_qty || 0;
 
-    const filtered = rawList.filter(p =>
-        p.item_id.toLowerCase().includes(q) ||
-        (p.spec || "").toLowerCase().includes(q)
-    );
-
-    render(filtered);
-});
-
-
-
-/* ============================================
-   初始化
-============================================ */
-loadData();
+    renderCard();
+})();
 </script>
+
 </body>
 </html>
