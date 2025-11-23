@@ -1,295 +1,564 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>構件管理</title>
-<link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>構件管理</title>
+    <link rel="stylesheet" href="styles.css">
 
-<style>
-body { padding:20px; }
+    <style>
+        body {
+            padding: 20px;
+        }
 
-/* Header */
-.header-row {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:20px;
-}
-.header-title {
-    font-size:24px;
-    font-weight:bold;
-    color:#fff;
-}
-.back-btn {
-    padding:10px 20px;
-    background:#2f3340;
-    color:#fff;
-    border-radius:12px;
-    cursor:pointer;
-}
+        /* Header */
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
 
-/* Input */
-.input-box {
-    width:100%;
-    padding:14px;
-    border-radius:12px;
-    background:#2a2b31;
-    border:none;
-    color:#fff;
-    margin-bottom:14px;
-}
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
 
-/* Buttons */
-.primary-btn {
-    width:100%;
-    padding:14px;
-    background:#3d7bff;
-    border-radius:14px;
-    color:#fff;
-    text-align:center;
-    cursor:pointer;
-    margin-bottom:20px;
-}
+        .back-btn {
+            padding: 10px 20px;
+            background: #2f3340;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+        }
 
-.section-title {
-    color:#bbb;
-    margin:16px 0 8px;
-    font-size:15px;
-}
+        /* Input */
+        .input-box {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: #2a2b31;
+            border: none;
+            color: #fff;
+            margin-bottom: 14px;
+        }
 
-/* Item card */
-.item-card {
-    background:#2a2b31;
-    color:#fff;
-    padding:16px;
-    border-radius:14px;
-    margin-bottom:16px;
-}
-.item-head {
-    font-size:18px;
-    font-weight:bold;
-}
-.item-sub {
-    margin-top:4px;
-    color:#bbb;
-    font-size:14px;
-}
+        /* Buttons */
+        .primary-btn {
+            width: 100%;
+            padding: 14px;
+            background: #3d7bff;
+            border-radius: 14px;
+            color: #fff;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
 
-/* Edit row */
-.row {
-    display:flex;
-    gap:10px;
-    margin-top:12px;
-}
-.select-box, .edit-box {
-    flex:1;
-    padding:14px;
-    border-radius:12px;
-    background:#33353d;
-    border:none;
-    color:#fff;
-}
-.btn-update {
-    padding:12px 18px;
-    background:#3d7bff;
-    color:#fff;
-    border-radius:12px;
-    cursor:pointer;
-}
-.btn-delete {
-    padding:12px 18px;
-    background:#d9534f;
-    color:#fff;
-    border-radius:12px;
-    cursor:pointer;
-}
-</style>
+        .section-title {
+            color: #bbb;
+            margin: 16px 0 8px;
+            font-size: 15px;
+        }
+
+        /* Item card */
+        .item-card {
+            background: #2a2b31;
+            color: #fff;
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            /* Add cursor pointer */
+            transition: background 0.3s;
+        }
+
+        .item-card:hover {
+            background: #33353d;
+        }
+
+        .item-head {
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            /* Remove pointer-events: none to allow clicks to bubble naturally */
+        }
+
+        .item-pos {
+            font-size: 14px;
+            color: #bbb;
+            font-weight: normal;
+        }
+
+        /* Edit row */
+        .row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .select-box,
+        .edit-box {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            background: #33353d;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-update {
+            padding: 12px 18px;
+            background: #3d7bff;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            flex: 1;
+        }
+
+        .btn-delete {
+            padding: 12px 18px;
+            background: #d9534f;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            flex: 1;
+        }
+
+        /* Collapsible styles */
+        .item-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            margin-top: 0;
+            cursor: default;
+            /* Reset cursor for details area */
+        }
+
+        .item-details.expanded {
+            max-height: 500px;
+            margin-top: 16px;
+            border-top: 1px solid #3e414b;
+            padding-top: 16px;
+        }
+    </style>
 </head>
 
 <body>
 
-<!-- Header -->
-<div class="header-row">
-    <div class="header-title">構件管理</div>
-    <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
-</div>
+    <!-- Header -->
+    <div class="header-row">
+        <div class="header-title">構件管理</div>
+        <div class="back-btn" onclick="location.href='index.html'">返回主畫面</div>
+    </div>
 
-<!-- Search -->
-<input id="search" class="input-box" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="renderList()">
+    <!-- Search -->
+    <input id="search" class="input-box" placeholder="搜尋：編號 / 規格 / 材質 / 位置 / 重量 / 數量" oninput="renderList()">
 
-<!-- 新增構件 -->
-<div class="section-title">單筆新增構件</div>
+    <!-- 新增構件 -->
+    <div class="section-title">單筆新增構件</div>
 
-<input id="newId"      class="input-box" placeholder="構件編號，例如 A-001">
-<input id="newPos"     class="input-box" placeholder="構件位置，例如 0/A">
-<input id="newWeight"  class="input-box" placeholder="構件重量">
-<input id="newQty"     class="input-box" placeholder="構件數量，例如 10">
-<input id="newSpec"    class="input-box" placeholder="構件規格，例如 PL-25*500*650">
-<input id="newMaterial" class="input-box" placeholder="材質，例如 SS400">
+    <input id="newId" class="input-box" placeholder="構件編號，例如 A-001">
+    <input id="newPos" class="input-box" placeholder="構件位置，例如 0/A">
+    <input id="newWeight" class="input-box" placeholder="構件重量">
+    <input id="newQty" class="input-box" placeholder="構件數量，例如 10">
+    <input id="newSpec" class="input-box" placeholder="構件規格，例如 PL-25*500*650">
+    <input id="newMaterial" class="input-box" placeholder="材質，例如 SS400">
 
-<div class="primary-btn" onclick="addItem()">新增一筆</div>
+    <div class="primary-btn" onclick="addItem()">新增一筆</div>
 
-<div class="section-title">構件列表</div>
+    <div class="section-title">構件列表</div>
 
-<div id="itemList"></div>
+    <div id="itemList"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* Supabase INIT */
-const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="back.js"></script>
+    <script>
+        /* Supabase INIT */
+        const db = window.supabaseClient;
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let items = [];
 
-let items = [];
+        /* 讀取全部構件並計算狀態 */
+        async function loadItems() {
+            // 1. Fetch Components Library (Base)
+            const { data: libData, error: libError } = await db
+                .from("components_library")
+                .select("*")
+                .order("item_id");
 
-/* 讀取全部構件 */
-async function loadItems() {
-    const { data, error } = await db
-        .from("components_library")
-        .select("*")
-        .order("item_id");
+            if (libError) {
+                alert("讀取構件庫失敗：" + libError.message);
+                return;
+            }
 
-    if (error) {
-        alert("讀取失敗：" + error.message);
-        return;
-    }
+            // 2. Fetch Planned Items (Received/In-stock)
+            const { data: plannedData, error: plannedError } = await db
+                .from("planned_items")
+                .select("item_id, position, status");
 
-    items = data || [];
-    renderList();
-}
+            // 3. Fetch Today Records (Used)
+            const { data: usedData, error: usedError } = await db
+                .from("today_records")
+                .select("item_id, position, status");
 
-/* 新增構件 */
-async function addItem() {
-    const id = newId.value.trim();
-    const pos = newPos.value.trim();
-    const w = newWeight.value.trim();
-    const q = newQty.value.trim();
-    const s = newSpec.value.trim();
-    const m = newMaterial.value.trim();
+            // Helper to create a unique key for matching
+            const getKey = (id, pos) => `${id}_${pos || ''}`;
 
-    if (!id || !q) {
-        alert("至少需要填寫【構件編號】與【數量】");
-        return;
-    }
+            // Build Maps for fast lookup
+            const plannedMap = new Map();
+            if (plannedData) {
+                plannedData.forEach(p => plannedMap.set(getKey(p.item_id, p.position), p.status));
+            }
 
-    const { error } = await db.from("components_library").insert({
-        item_id: id,
-        position: pos,
-        weight: w,
-        qty: Number(q),
-        spec: s,
-        material: m
-    });
+            const todayMap = new Map();
+            if (usedData) {
+                usedData.forEach(u => todayMap.set(getKey(u.item_id, u.position), u.status));
+            }
 
-    if (error) {
-        alert("新增失敗：" + error.message);
-        return;
-    }
+            // 4. Merge and Determine Status
+            items = (libData || []).map(item => {
+                const key = getKey(item.item_id, item.position);
 
-    newId.value = "";
-    newPos.value = "";
-    newWeight.value = "";
-    newQty.value = "";
-    newSpec.value = "";
-    newMaterial.value = "";
+                // Logic: Used (if explicitly 'used') > Received > Planned > Unplanned (Default)
+                let status = 'unplanned';
 
-    loadItems();
-}
+                const todayStatus = todayMap.get(key);
 
-/* 渲染構件列表 */
-function renderList() {
-    const list = document.getElementById("itemList");
-    list.innerHTML = "";
+                if (todayStatus === 'used') {
+                    status = 'used';
+                } else if (plannedMap.has(key)) {
+                    const pStatus = plannedMap.get(key);
+                    status = pStatus === 'received' ? 'received' : 'planned';
+                } else {
+                    status = 'unplanned';
+                }
 
-    const keyword = search.value.trim().toLowerCase();
+                return {
+                    ...item,
+                    computedStatus: status
+                };
+            });
 
-    items
-        .filter(a => JSON.stringify(a).toLowerCase().includes(keyword))
-        .forEach((item) => {
+            renderList();
+        }
 
-        const card = document.createElement("div");
-        card.className = "item-card";
+        /* 新增構件 */
+        async function addItem() {
+            const id = newId.value.trim();
+            const pos = newPos.value.trim();
+            const w = newWeight.value.trim();
+            const q = newQty.value.trim();
+            const s = newSpec.value.trim();
+            const m = newMaterial.value.trim();
 
-        card.innerHTML = `
-            <div class="item-head">${item.item_id}</div>
-            <div class="item-sub">
-                規格：${item.spec || "-"}　|　
-                材質：${item.material || "-"}　|　
-                位置：${item.position || "-"}　|　
-                重量：${item.weight || "-"}　|　
-                數量：${item.qty}
+            if (!id || !q) {
+                alert("至少需要填寫【構件編號】與【數量】");
+                return;
+            }
+
+            // 1. Insert into components_library ONLY (Default status: unplanned)
+            const { error: libError } = await db.from("components_library").insert({
+                item_id: id,
+                position: pos,
+                weight: w,
+                qty: Number(q),
+                spec: s,
+                material: m,
+                status: 'unplanned'
+            });
+
+            if (libError) {
+                alert("新增失敗：" + libError.message);
+                return;
+            }
+
+            newId.value = "";
+            newPos.value = "";
+            newWeight.value = "";
+            newQty.value = "";
+            newSpec.value = "";
+            newMaterial.value = "";
+
+            await loadItems(); // Refresh list
+        }
+
+        /* 渲染構件列表 */
+        function renderList() {
+            const list = document.getElementById("itemList");
+            list.innerHTML = "";
+
+            const keyword = search.value.trim().toLowerCase();
+
+            items
+                .filter(a => JSON.stringify(a).toLowerCase().includes(keyword))
+                .forEach((item) => {
+
+                    const card = document.createElement("div");
+                    card.className = "item-card";
+
+                    // Improved click handler
+                    card.onclick = function (e) {
+                        // Check if the clicked element or any of its parents is an interactive element
+                        if (e.target.closest('input') ||
+                            e.target.closest('select') ||
+                            e.target.closest('.btn-update') ||
+                            e.target.closest('.btn-delete')) {
+                            return;
+                        }
+                        toggleDetails(this);
+                    };
+
+                    // Determine display text and color based on COMPUTED status
+                    const currentStatus = item.computedStatus;
+                    let statusText = '未進料';
+                    let statusColor = '#777'; // Gray for Unplanned
+
+                    if (currentStatus === 'planned') {
+                        statusText = '預定中';
+                        statusColor = '#f1c40f'; // Yellow for Planned
+                    } else if (currentStatus === 'received') {
+                        statusText = '已進料';
+                        statusColor = '#5bc0de'; // Blue for Received
+                    } else if (currentStatus === 'used') {
+                        statusText = '已使用';
+                        statusColor = '#5cb85c'; // Green for Used
+                    }
+
+                    const statusOptions = `
+                        <option value="unplanned" ${currentStatus === 'unplanned' ? 'selected' : ''}>未進料</option>
+                        <option value="planned" ${currentStatus === 'planned' ? 'selected' : ''}>預定中</option>
+                        <option value="received" ${currentStatus === 'received' ? 'selected' : ''}>已進料</option>
+                        <option value="used" ${currentStatus === 'used' ? 'selected' : ''}>已使用</option>
+                    `;
+
+                    card.innerHTML = `
+            <div class="item-head">
+                <div>
+                    ${item.item_id}
+                    <span style="font-size:12px; color:${statusColor}; margin-left:8px; padding:2px 6px; border:1px solid ${statusColor}; border-radius:4px;">
+                        ${statusText}
+                    </span>
+                </div>
+                <span class="item-pos">${item.position || "-"}</span>
             </div>
+            
+            <div class="item-details">
+                <div class="row">
+                    <select class="edit-box" id="status_${item.id}">
+                        <option value="">-- 選擇狀態 --</option>
+                        ${statusOptions}
+                    </select>
+                    <input class="edit-box" id="pos_${item.id}" placeholder="位置" value="${item.position || ""}">
+                </div>
 
-            <div class="row">
-                <input class="edit-box" id="pos_${item.id}" placeholder="位置" value="${item.position || ""}">
-                <input class="edit-box" id="w_${item.id}" placeholder="重量" value="${item.weight || ""}">
-                <input class="edit-box" id="q_${item.id}" placeholder="數量" value="${item.qty}">
-            </div>
+                <div class="row">
+                    <input class="edit-box" id="w_${item.id}" placeholder="重量" value="${item.weight || ""}">
+                    <input class="edit-box" id="q_${item.id}" placeholder="數量" value="${item.qty}">
+                </div>
 
-            <div class="row">
-                <input class="edit-box" id="s_${item.id}" placeholder="規格" value="${item.spec || ""}">
-                <input class="edit-box" id="m_${item.id}" placeholder="材質" value="${item.material || ""}">
-            </div>
+                <div class="row">
+                    <input class="edit-box" id="s_${item.id}" placeholder="規格" value="${item.spec || ""}">
+                    <input class="edit-box" id="m_${item.id}" placeholder="材質" value="${item.material || ""}">
+                </div>
 
-            <div class="row">
-                <div class="btn-update" onclick="saveItem(${item.id})">更新</div>
-                <div class="btn-delete" onclick="deleteItem(${item.id})">刪除</div>
+                <div class="row">
+                    <div class="btn-update" onclick="saveItem(${item.id}, '${item.item_id}')">更新</div>
+                    <div class="btn-delete" onclick="deleteItem(${item.id})">刪除</div>
+                </div>
             </div>
         `;
 
-        list.appendChild(card);
-    });
-}
+                    list.appendChild(card);
+                });
+        }
 
-/* 更新構件 */
-async function saveItem(id) {
+        /* 切換詳情顯示 */
+        function toggleDetails(card) {
+            const details = card.querySelector('.item-details');
+            details.classList.toggle('expanded');
+        }
 
-    const pos = document.getElementById(`pos_${id}`).value.trim();
-    const w   = document.getElementById(`w_${id}`).value.trim();
-    const q   = Number(document.getElementById(`q_${id}`).value.trim());
-    const s   = document.getElementById(`s_${id}`).value.trim();
-    const m   = document.getElementById(`m_${id}`).value.trim();
+        /* Helper: Fetch existing record to preserve data */
+        async function fetchRecord(table, itemId, pos) {
+            const { data, error } = await db
+                .from(table)
+                .select("*")
+                .eq("item_id", itemId)
+                .eq("position", pos)
+                .limit(1);
 
-    const { error } = await db
-        .from("components_library")
-        .update({
-            position: pos,
-            weight: w,
-            qty: q,
-            spec: s,
-            material: m
-        })
-        .eq("id", id);
+            if (error) {
+                console.error(`Fetch record failed for ${table}:`, error);
+                return null;
+            }
+            return (data && data.length > 0) ? data[0] : null;
+        }
 
-    if (error) {
-        alert("更新失敗：" + error.message);
-        return;
-    }
+        /* 更新構件 */
+        async function saveItem(id, itemId) {
+            console.log(`Saving item ${id} (${itemId})...`);
 
-    alert("已更新構件資料。");
-    loadItems();
-}
+            const pos = document.getElementById(`pos_${id}`).value.trim();
+            const w = document.getElementById(`w_${id}`).value.trim();
+            const q = Number(document.getElementById(`q_${id}`).value.trim());
+            const s = document.getElementById(`s_${id}`).value.trim();
+            const m = document.getElementById(`m_${id}`).value.trim();
+            const newStatus = document.getElementById(`status_${id}`).value;
 
-/* 刪除構件 */
-async function deleteItem(id) {
-    if (!confirm("確定要刪除此構件嗎？")) return;
+            console.log("New Status:", newStatus);
 
-    const { error } = await db.from("components_library").delete().eq("id", id);
+            // 1. Update components_library
+            const { error: libError } = await db
+                .from("components_library")
+                .update({
+                    position: pos,
+                    weight: w,
+                    qty: q,
+                    spec: s,
+                    material: m,
+                    status: newStatus
+                })
+                .eq("id", id);
 
-    if (error) {
-        alert("刪除失敗：" + error.message);
-        return;
-    }
+            if (libError) {
+                alert("更新構件庫失敗：" + libError.message);
+                return;
+            }
 
-    loadItems();
-}
+            // 2. Sync with other tables based on status
+            try {
+                // Fetch existing records to preserve dates
+                const existingPlan = await fetchRecord("planned_items", itemId, pos);
+                const existingUsed = await fetchRecord("today_records", itemId, pos);
 
-/* INIT */
-loadItems();
-</script>
+                console.log("Existing Plan:", existingPlan, "Existing Used:", existingUsed);
+
+                if (newStatus === 'unplanned') {
+                    console.log("Syncing: Unplanned (Deleting from planned/used)");
+                    if (existingPlan) await db.from("planned_items").delete().eq("id", existingPlan.id);
+                    if (existingUsed) await db.from("today_records").delete().eq("id", existingUsed.id);
+                }
+                else if (newStatus === 'planned') {
+                    console.log("Syncing: Planned");
+                    const planData = {
+                        item_id: itemId,
+                        position: pos,
+                        planned_qty: q,
+                        received_qty: 0,
+                        status: 'planned',
+                        // Preserve date if exists, else today
+                        planned_date: existingPlan ? existingPlan.planned_date : new Date().toISOString().split('T')[0]
+                    };
+
+                    if (existingPlan) {
+                        await db.from("planned_items").update(planData).eq("id", existingPlan.id);
+                    } else {
+                        await db.from("planned_items").insert(planData);
+                    }
+
+                    if (existingUsed) await db.from("today_records").delete().eq("id", existingUsed.id);
+                }
+                else if (newStatus === 'received') {
+                    console.log("Syncing: Received");
+                    const planData = {
+                        item_id: itemId,
+                        position: pos,
+                        planned_qty: q,
+                        received_qty: q, // Full qty received
+                        status: 'received',
+                        planned_date: existingPlan ? existingPlan.planned_date : new Date().toISOString().split('T')[0]
+                    };
+
+                    if (existingPlan) {
+                        await db.from("planned_items").update(planData).eq("id", existingPlan.id);
+                    } else {
+                        await db.from("planned_items").insert(planData);
+                    }
+
+                    // NEW LOGIC: Update today_records status to 'received' instead of deleting
+                    const usedData = {
+                        item_id: itemId,
+                        position: pos,
+                        qty: q,
+                        status: 'received',
+                        // Preserve used_at if exists, else new date
+                        used_at: existingUsed ? existingUsed.used_at : new Date().toISOString()
+                    };
+
+                    if (existingUsed) {
+                        await db.from("today_records").update(usedData).eq("id", existingUsed.id);
+                    } else {
+                        await db.from("today_records").insert(usedData);
+                    }
+                }
+                else if (newStatus === 'used') {
+                    console.log("Syncing: Used");
+                    // Ensure it's marked as received in planned_items
+                    const planData = {
+                        item_id: itemId,
+                        position: pos,
+                        planned_qty: q,
+                        received_qty: q,
+                        status: 'received',
+                        planned_date: existingPlan ? existingPlan.planned_date : new Date().toISOString().split('T')[0]
+                    };
+
+                    if (existingPlan) {
+                        await db.from("planned_items").update(planData).eq("id", existingPlan.id);
+                    } else {
+                        await db.from("planned_items").insert(planData);
+                    }
+
+                    const usedData = {
+                        item_id: itemId,
+                        position: pos,
+                        qty: q,
+                        status: 'used',
+                        // Preserve used_at if exists
+                        used_at: existingUsed ? existingUsed.used_at : new Date().toISOString()
+                    };
+
+                    if (existingUsed) {
+                        await db.from("today_records").update(usedData).eq("id", existingUsed.id);
+                    } else {
+                        await db.from("today_records").insert(usedData);
+                    }
+                }
+
+                alert("已更新構件資料並同步狀態。");
+                loadItems();
+
+            } catch (err) {
+                console.error("Sync error:", err);
+                alert("狀態同步時發生錯誤，請檢查 Console");
+            }
+        }
+
+        /* 刪除構件 */
+        async function deleteItem(id) {
+            if (!confirm("確定要刪除此構件嗎？")) return;
+
+            const { error } = await db.from("components_library").delete().eq("id", id);
+
+            if (error) {
+                alert("刪除失敗：" + error.message);
+                return;
+            }
+
+            loadItems();
+        }
+
+        /* INIT */
+        loadItems();
+    </script>
 
 </body>
+
 </html>
