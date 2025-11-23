@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -67,10 +68,19 @@
     <a href="index.html" class="top-btn">返回主畫面</a>
   </div>
 
-  <!-- 日期篩選 -->
-  <select id="dateFilter" class="select-box">
-    <option value="all">全部日期</option>
-  </select>
+  <!-- 搜尋與排序 -->
+  <div class="controls-area" style="width: 92%; margin: 0 auto 20px auto; display: flex; gap: 10px; flex-wrap: wrap;">
+    <input type="text" id="searchInput" placeholder="搜尋構件編號或位置..."
+      style="flex: 1; padding: 14px; background: #1f1f1f; border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 16px;">
+
+    <select id="sortSelect"
+      style="padding: 14px; background: #1f1f1f; border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 16px;">
+      <option value="default">預設排序</option>
+      <option value="planned">根據預定時間</option>
+      <option value="received">根據簽收時間</option>
+      <option value="used">根據吊裝時間</option>
+    </select>
+  </div>
 
   <!-- 進度環 -->
   <div class="progress-circles">
@@ -88,6 +98,7 @@
   <!-- 列表 -->
   <div id="listContainer"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="back.js"></script>
   <script>
     /***************************
@@ -119,9 +130,12 @@
     /***************************
      *  主邏輯：抓資料 + 畫 UI
      ***************************/
+    let allItems = []; // Store all processed items for filtering/sorting
+
     async function loadProgress() {
-      const components = await db_getAllComponents();   // components_library
-      const records = await db_getAllTodayRecords();    // today_records
+      const components = await db_read("components_library");
+      const records = await db_read("today_records");
+      const planned = await db_read("planned_items");
 
       // 去除 item_id 重複
       const total = new Set(components.map(x => x.item_id)).size;
@@ -142,44 +156,110 @@
       drawProgress("circleUsed", total ? used / total : 0);
 
       document.getElementById("receivedLabel").textContent =
-        `已進料 ${received}/${total} (${((received / total) * 100).toFixed(0)}%)`;
+        `已進料 ${received}/${total} (${total ? ((received / total) * 100).toFixed(0) : 0}%)`;
 
       document.getElementById("usedLabel").textContent =
-        `已使用 ${used}/${total} (${((used / total) * 100).toFixed(0)}%)`;
+        `已使用 ${used}/${total} (${total ? ((used / total) * 100).toFixed(0) : 0}%)`;
 
-      /*********************
-       *   產生列表（排序 B1）
-       *********************/
-      const sorted = [...components].sort((a, b) => {
-        if (a.item_id < b.item_id) return -1;
-        if (a.item_id > b.item_id) return 1;
-        return (a.position || "").localeCompare(b.position || "");
+      // Process all items first
+      allItems = components.map(c => {
+        const planRec = planned.find(p => p.item_id === c.item_id && p.position === c.position);
+        const actualRec = records.find(r => r.item_id === c.item_id && r.position === c.position);
+
+        let plannedDate = planRec ? planRec.planned_date : null;
+        let receivedTime = null;
+        let usedTime = null;
+
+        if (actualRec) {
+          // For received items, use used_at as the received timestamp
+          if (actualRec.status === 'received' && actualRec.used_at) {
+            receivedTime = actualRec.used_at;
+          }
+          // For used items, they were also received, so show both times
+          if (actualRec.status === 'used' && actualRec.used_at) {
+            receivedTime = actualRec.used_at; // Same time for now, or could track separately
+            usedTime = actualRec.used_at;
+          }
+        }
+
+        return {
+          ...c,
+          plannedDate,
+          receivedTime,
+          usedTime,
+          displayPlanned: plannedDate || "尚未排程",
+          displayReceived: receivedTime ? new Date(receivedTime).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : "-",
+          displayUsed: usedTime ? new Date(usedTime).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : "-"
+        };
+      });
+
+      renderList();
+    }
+
+    function renderList() {
+      const searchText = document.getElementById("searchInput").value.toLowerCase();
+      const sortMode = document.getElementById("sortSelect").value;
+
+      // Filter
+      let filtered = allItems.filter(item => {
+        return (item.item_id || "").toLowerCase().includes(searchText) ||
+          (item.position || "").toLowerCase().includes(searchText);
+      });
+
+      // Sort
+      filtered.sort((a, b) => {
+        if (sortMode === 'default') {
+          if (a.item_id < b.item_id) return -1;
+          if (a.item_id > b.item_id) return 1;
+          return (a.position || "").localeCompare(b.position || "");
+        } else if (sortMode === 'planned') {
+          return (b.plannedDate || "").localeCompare(a.plannedDate || "");
+        } else if (sortMode === 'received') {
+          return (b.receivedTime || "").localeCompare(a.receivedTime || "");
+        } else if (sortMode === 'used') {
+          return (b.usedTime || "").localeCompare(a.usedTime || "");
+        }
+        return 0;
       });
 
       const list = document.getElementById("listContainer");
       list.innerHTML = "";
 
-      sorted.forEach(c => {
-        const recR = records.find(r => r.item_id === c.item_id && r.status === "received");
-        const recU = records.find(r => r.item_id === c.item_id && r.status === "used");
-
-        const receivedDate = recR ? (recR.usedAt || "-") : "-";
-        const usedDate = recU ? (recU.usedAt || "-") : "-";
-
+      filtered.forEach(c => {
         const card = document.createElement("div");
         card.className = "item-card";
         card.innerHTML = `
-          <div style="font-size:20px;font-weight:600">${c.item_id}</div>
-          <div>${c.position || "-"}</div>
-          <div>${receivedDate}</div>
-          <div>${usedDate}</div>
-        `;
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="font-size:22px; font-weight:700; color:#fff;">${c.item_id}</div>
+                <div style="font-size:16px; color:#aaa; background:#333; padding:4px 10px; border-radius:8px;">${c.position || "無位置"}</div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; font-size:14px; text-align:center;">
+                <div style="background:#2a2a2a; padding:8px; border-radius:8px;">
+                    <div style="color:#aaa; margin-bottom:4px;">📅 預定</div>
+                    <div style="color:#fff;">${c.displayPlanned}</div>
+                </div>
+                <div style="background:#2a2a2a; padding:8px; border-radius:8px;">
+                    <div style="color:#aaa; margin-bottom:4px;">📥 簽收</div>
+                    <div style="color:#4da6ff;">${c.displayReceived}</div>
+                </div>
+                <div style="background:#2a2a2a; padding:8px; border-radius:8px;">
+                    <div style="color:#aaa; margin-bottom:4px;">🏗️ 吊裝</div>
+                    <div style="color:#27ae60;">${c.displayUsed}</div>
+                </div>
+              </div>
+            `;
         list.appendChild(card);
       });
     }
+
+    // Event Listeners
+    document.getElementById("searchInput").addEventListener("input", renderList);
+    document.getElementById("sortSelect").addEventListener("change", renderList);
 
     loadProgress();
   </script>
 
 </body>
+
 </html>
