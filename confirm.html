@@ -1,153 +1,657 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
+
 <head>
-<meta charset="UTF-8">
-<title>構件使用確認</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日吊裝記錄</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 控制區域樣式 */
+        .controls-area {
+            background: #141821;
+            margin: 16px;
+            padding: 20px;
+            border-radius: 20px;
+        }
 
-<style>
-.screen-card { background:#1c2433; padding:16px; border-radius:14px; color:#fff; margin:12px; }
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
 
-.item-title { font-size:22px; font-weight:700; margin-bottom:6px; }
-.item-sub { font-size:14px; color:#bbb; margin-bottom:10px; }
+        .control-input {
+            padding: 12px;
+            background: #1c2433;
+            border: 1px solid #2a2f3a;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+        }
 
-.qty-box { display:flex; gap:10px; align-items:center; margin:14px 0; }
-.qty-btn {
-    width:34px; height:34px; border-radius:12px; background:#2f7dff;
-    display:flex; justify-content:center; align-items:center; font-size:20px;
-}
-.qty-num { width:40px; text-align:center; font-size:18px; }
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+        }
 
-.primary-btn {
-    width:100%; background:#2f7dff; padding:12px;
-    border-radius:12px; text-align:center; margin-top:18px;
-    color:#fff; font-size:16px;
-}
-</style>
+        .sort-select {
+            width: auto;
+            min-width: 150px;
+        }
+
+        .control-btn {
+            padding: 12px 20px;
+            background: #2f7dff;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: #1e6fe6;
+            transform: translateY(-2px);
+        }
+
+        .control-btn.secondary {
+            background: #667eea;
+        }
+
+        .control-btn.secondary:hover {
+            background: #5568d3;
+        }
+
+        .record-count {
+            color: #aaa;
+            font-size: 14px;
+            padding: 12px;
+        }
+
+        /* 批量確認按鈕 */
+        .batch-confirm-btn {
+            position: fixed;
+            top: 20px;
+            right: 160px;
+            background: #28a745;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+            transition: all 0.3s ease;
+            z-index: 100;
+            display: none;
+            border: none;
+        }
+
+        .batch-confirm-btn.visible {
+            display: block;
+        }
+
+        .batch-confirm-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .batch-confirm-btn .count {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 2px 8px;
+            border-radius: 8px;
+            margin-left: 6px;
+        }
+
+        /* 構件卡片 - 緊湊佈局 */
+        .item-card {
+            background: #1c2433;
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin: 8px 16px;
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .item-card.removing {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+
+        /* 第一行：標題與位置 */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .item-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .item-pos {
+            font-size: 15px;
+            color: #aaa;
+            font-weight: 500;
+        }
+
+        /* 第二行：控制列 */
+        .card-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* 數量控制器 - 緊湊版 */
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            background: #141821;
+            border-radius: 8px;
+            padding: 4px;
+            flex: 0 0 auto;
+        }
+
+        .qty-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            background: #2f7dff;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .qty-display {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            min-width: 40px;
+            text-align: center;
+            margin: 0 4px;
+        }
+
+        /* 狀態按鈕 - 緊湊版 */
+        .toggle-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            height: 36px;
+            transition: background 0.2s;
+        }
+
+        /* 預設狀態：藍色，顯示「已使用」 (表示將被確認) */
+        .toggle-btn.will-confirm {
+            background: #2f7dff;
+            color: #fff;
+        }
+
+        /* 排除狀態：灰色，顯示「未使用」 (表示將被保留) */
+        .toggle-btn.excluded {
+            background: #343a40;
+            color: #bbb;
+        }
+
+        /* 已完成狀態：綠色，顯示「已確認」 */
+        .toggle-btn.completed {
+            background: #28a745;
+            cursor: default;
+        }
+
+        /* 詳情區域 */
+        .item-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            font-size: 13px;
+            color: #888;
+            margin-top: 0;
+            padding: 0 4px;
+            border-top: 1px solid #2a2f3a;
+        }
+
+        .item-details.expanded {
+            max-height: 150px;
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+
+        .expand-trigger {
+            font-size: 12px;
+            color: #667eea;
+            cursor: pointer;
+            margin-left: 8px;
+            text-decoration: none;
+        }
+
+        /* Custom Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #1c2433;
+            padding: 24px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .modal-message {
+            color: #ccc;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            font-size: 15px;
+            flex: 1;
+        }
+
+        .modal-btn.cancel {
+            background: #343a40;
+            color: #fff;
+        }
+
+        .modal-btn.confirm {
+            background: #28a745;
+            color: #fff;
+        }
+    </style>
 </head>
 
 <body>
+    <div class="top-bar">
+        <div class="top-bar-title">每日吊裝記錄</div>
+        <a href="index.html" class="top-btn">返回主畫面</a>
+    </div>
 
-<div class="top-bar">
-    <div class="top-bar-title">構件使用確認</div>
-    <a href="index.html" class="top-btn">返回主畫面</a>
-</div>
+    <!-- 批量確認按鈕 -->
+    <button id="batchConfirmBtn" class="batch-confirm-btn" onclick="openConfirmModal()">
+        確認其餘已使用 <span class="count">0</span>
+    </button>
 
-<div id="contentArea"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* ===== Supabase ===== */
-const SUPABASE_URL = "https://udilhhmpdmnrkfgkowqo.supabase.co";
-const SUPABASE_KEY =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkaWxoaG1wZG1ucmtmZ2tvd3FvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NjE5MzAsImV4cCI6MjA3OTAzNzkzMH0.BeuRQFIWUmRV32D0a0qyhMwBTvUSO4G-g6yNapIYwE8";
-
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-
-/* ===== 讀 URL 參數 ===== */
-const param = new URL(location.href).searchParams;
-
-const DATA = {
-    pid: param.get("pid"),
-    item_id: param.get("item_id"),
-    position: param.get("position"),
-    planned_date: param.get("planned_date"),
-    planned_qty: Number(param.get("planned_qty")),
-    received_qty: Number(param.get("received_qty")),
-    spec: param.get("spec"),
-    material: param.get("material"),
-    weight: param.get("weight")
-};
-
-
-/* ===== UI 渲染 ===== */
-function renderCard() {
-
-    const usable = DATA.received_qty - (DATA.used_qty || 0);
-
-    document.getElementById("contentArea").innerHTML = `
-        <div class="screen-card">
-            <div class="item-title">${DATA.item_id}</div>
-
-            <div class="item-sub">
-                位置：${DATA.position}<br>
-                預計：${DATA.planned_qty}　已收：${DATA.received_qty}<br>
-                規格：${DATA.spec || "-"}<br>
-                材質：${DATA.material || "-"}<br>
-                重量：${DATA.weight || "-"}
+    <!-- Custom Modal -->
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">確認更新狀態</div>
+            <div class="modal-message" id="modalMessage"></div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+                <button class="modal-btn confirm" onclick="executeBatchConfirm()">確定</button>
             </div>
-
-            <div>可使用數量：${usable}</div>
-
-            <div class="qty-box">
-                <div id="btnMinus" class="qty-btn">−</div>
-                <div id="qtyNum" class="qty-num">1</div>
-                <div id="btnPlus" class="qty-btn">+</div>
-            </div>
-
-            <div id="confirmBtn" class="primary-btn">確認使用</div>
         </div>
-    `;
+    </div>
 
-    const qtyNum = document.getElementById("qtyNum");
-    const minus  = document.getElementById("btnMinus");
-    const plus   = document.getElementById("btnPlus");
+    <!-- 控制區域 -->
+    <div class="controls-area">
+        <div class="controls-row">
+            <input type="date" id="dateSelector" class="control-input">
+            <input type="text" id="searchInput" placeholder="搜尋構件編號或位置..." class="control-input search-input">
+            <select id="sortSelect" class="control-input sort-select">
+                <option value="default">預設排序</option>
+                <option value="item_id">依構件編號</option>
+                <option value="position">依位置</option>
+                <option value="time">依時間</option>
+            </select>
+            <button id="showAllBtn" class="control-btn secondary">顯示全部構件</button>
+            <div class="record-count" id="recordCount">共 0 筆記錄</div>
+        </div>
+    </div>
 
-    minus.onclick = ()=>{
-        let v = Number(qtyNum.textContent);
-        if(v > 1) qtyNum.textContent = v-1;
-    };
-    plus.onclick = ()=>{
-        let v = Number(qtyNum.textContent);
-        if(v < usable) qtyNum.textContent = v+1;
-    };
+    <div id="contentArea"></div>
 
-    document.getElementById("confirmBtn").onclick = ()=>{
-        confirmUse(Number(qtyNum.textContent));
-    };
-}
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="back.js"></script>
+    <script>
+        console.log("Script start");
+        const db = window.supabaseClient;
+        let items = [];
+        let allItems = [];
+        const exclusionState = {};
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let isToday = true;
+        let showAllMode = false;
 
+        // Modal Functions
+        function openConfirmModal() {
+            const itemsToConfirm = allItems.filter(item => exclusionState[item.id] !== true);
+            if (itemsToConfirm.length === 0) {
+                alert("沒有可確認的項目");
+                return;
+            }
 
-/* ===== 寫入使用紀錄 ===== */
-async function confirmUse(amount) {
+            const msg = `確定要將 ${itemsToConfirm.length} 個構件標記為已使用嗎？<br><span style="font-size:13px;color:#888">(保留 ${allItems.length - itemsToConfirm.length} 個未使用)</span>`;
+            document.getElementById("modalMessage").innerHTML = msg;
+            document.getElementById("customModal").classList.add("active");
+        }
 
-    /* Step 1: 寫入 today_usage */
-    await db.from("today_usage").insert({
-        planned_id: DATA.pid,
-        item_id: DATA.item_id,
-        position: DATA.position,
-        qty: amount,
-        used_at: new Date().toISOString()
-    });
+        function closeModal() {
+            document.getElementById("customModal").classList.remove("active");
+        }
 
-    /* Step 2: 更新 planned_items.used_qty */
-    await db.from("planned_items")
-        .update({
-            used_qty: (DATA.used_qty || 0) + amount
-        })
-        .eq("id", DATA.pid);
+        async function executeBatchConfirm() {
+            closeModal();
+            const itemsToConfirm = allItems.filter(item => exclusionState[item.id] !== true);
 
-    /* Step 3: 跳回構件使用清單 */
-    location.href = "confirm.html"; // 若你要跳回使用頁，請改 library.html 或 index.html
-}
+            try {
+                for (const item of itemsToConfirm) {
+                    console.log("Updating item:", item.id);
+                    const { error } = await db.from("today_records").update({
+                        status: "used",
+                        qty: item.usedQty,
+                        used_at: new Date().toISOString()
+                    }).eq("id", item.id);
 
+                    if (error) throw error;
 
-/* ===== 初始化 ===== */
-(async()=>{
-    /* 從 DB 抓目前 used_qty */
-    const { data } = await db
-        .from("planned_items")
-        .select("used_qty")
-        .eq("id", DATA.pid)
-        .single();
+                    const card = document.querySelector(`[data-item-id="${item.id}"]`);
+                    if (card) card.classList.add('removing');
+                }
 
-    DATA.used_qty = data?.used_qty || 0;
+                await new Promise(resolve => setTimeout(resolve, 300));
+                await loadItems();
+                // Use a small timeout to ensure alert doesn't block UI refresh
+                setTimeout(() => alert(`成功確認 ${itemsToConfirm.length} 個構件已使用！`), 100);
+            } catch (error) {
+                console.error("Batch confirm error:", error);
+                alert("批量確認失敗：" + error.message);
+            }
+        }
 
-    renderCard();
-})();
-</script>
+        // 初始化日期選擇器
+        function initDateSelector() {
+            const dateInput = document.getElementById("dateSelector");
+            dateInput.value = selectedDate;
+            dateInput.addEventListener("change", (e) => {
+                selectedDate = e.target.value;
+                isToday = selectedDate === new Date().toISOString().split('T')[0];
+                loadItems();
+            });
+        }
 
+        // 更新批量確認按鈕
+        function updateBatchButton() {
+            if (!isToday || showAllMode) {
+                document.getElementById("batchConfirmBtn").classList.remove("visible");
+                return;
+            }
+
+            const totalItems = allItems.length;
+            const excludedCount = Object.values(exclusionState).filter(v => v === true).length;
+            const confirmCount = totalItems - excludedCount;
+
+            const batchBtn = document.getElementById("batchConfirmBtn");
+            const countSpan = batchBtn.querySelector(".count");
+
+            if (countSpan) {
+                countSpan.textContent = confirmCount;
+            }
+
+            if (confirmCount > 0) {
+                batchBtn.classList.add("visible");
+            } else {
+                batchBtn.classList.remove("visible");
+            }
+        }
+
+        // 讀取資料
+        async function loadItems() {
+            console.log("Loading items...");
+            const startOfDay = new Date(selectedDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(selectedDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            let query = db.from("today_records").select("*");
+
+            if (showAllMode) {
+                query = query.gte("used_at", startOfDay.toISOString()).lte("used_at", endOfDay.toISOString());
+            } else if (isToday) {
+                query = query.eq("status", "received");
+            } else {
+                query = query.eq("status", "used").gte("used_at", startOfDay.toISOString()).lte("used_at", endOfDay.toISOString());
+            }
+
+            const { data: records, error } = await query.order("used_at", { ascending: false });
+            if (error) {
+                console.error("Error loading items:", error);
+                return;
+            }
+
+            const itemIds = [...new Set(records.map(r => r.item_id))];
+            let compMap = {};
+            if (itemIds.length > 0) {
+                const { data: comps } = await db.from("components_library").select("*").in("item_id", itemIds);
+                (comps || []).forEach(c => { compMap[c.item_id] = c; });
+            }
+
+            items = records.map(r => {
+                const comp = compMap[r.item_id] || {};
+                return {
+                    ...r,
+                    spec: comp.spec || 'N/A',
+                    material: comp.material || 'N/A',
+                    weight: comp.weight || 'N/A',
+                    current_received_qty: r.qty,
+                    usedQty: r.qty
+                };
+            });
+
+            allItems = items;
+            console.log("All items loaded:", allItems.length);
+            for (const key in exclusionState) delete exclusionState[key];
+
+            renderFilteredItems();
+        }
+
+        // 渲染列表
+        function renderFilteredItems() {
+            const searchText = document.getElementById("searchInput").value.toLowerCase();
+            const sortMode = document.getElementById("sortSelect").value;
+
+            let filtered = allItems.filter(item => {
+                return (item.item_id || "").toLowerCase().includes(searchText) ||
+                    (item.position || "").toLowerCase().includes(searchText);
+            });
+
+            filtered.sort((a, b) => {
+                if (sortMode === 'item_id') {
+                    return (a.item_id || "").localeCompare(b.item_id || "");
+                } else if (sortMode === 'position') {
+                    return (a.position || "").localeCompare(b.position || "");
+                } else if (sortMode === 'time') {
+                    return (b.used_at || "").localeCompare(a.used_at || "");
+                }
+                return 0;
+            });
+
+            document.getElementById("recordCount").textContent = `共 ${filtered.length} 筆記錄`;
+
+            const container = document.getElementById("contentArea");
+            container.innerHTML = "";
+
+            if (filtered.length === 0) {
+                const message = searchText ? "無符合搜尋條件的項目" : (isToday ? "目前無待確認項目" : "此日期無吊裝記錄");
+                container.innerHTML = `<div style='color:#ccc;text-align:center;padding:40px'>${message}</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement("div");
+                card.className = "item-card";
+                card.dataset.itemId = item.id;
+
+                let buttonHtml = '';
+
+                if (isToday && !showAllMode) {
+                    const isExcluded = exclusionState[item.id] === true;
+                    const btnClass = isExcluded ? 'toggle-btn excluded' : 'toggle-btn will-confirm';
+                    const btnText = isExcluded ? '未使用 (保留)' : '已使用';
+
+                    buttonHtml = `<button class="${btnClass}" data-item-id="${item.id}">${btnText}</button>`;
+                } else {
+                    const statusText = item.status === 'received' ? '待確認' : '已使用';
+                    const statusClass = item.status === 'received' ? 'toggle-btn default' : 'toggle-btn completed';
+                    buttonHtml = `<button class="${statusClass}">${statusText}</button>`;
+                }
+
+                if (!item.usedQty) item.usedQty = item.current_received_qty || 1;
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="item-title">
+                            ${item.item_id}
+                            <span class="expand-trigger" onclick="toggleDetails(this)">▼ 詳情</span>
+                        </div>
+                        <div class="item-pos">${item.position}</div>
+                    </div>
+
+                    <div class="card-controls">
+                        <div class="quantity-control">
+                            <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
+                            <div class="qty-display" id="qty-${item.id}">${item.usedQty}</div>
+                            <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
+                        </div>
+                        ${buttonHtml}
+                    </div>
+
+                    <div class="item-details">
+                        材質：${item.material}<br>
+                        規格：${item.spec}<br>
+                        重量：${item.weight}<br>
+                        總數量：${item.current_received_qty}
+                    </div>
+                `;
+
+                if (isToday && !showAllMode) {
+                    const toggleBtn = card.querySelector(".toggle-btn");
+                    toggleBtn.onclick = () => {
+                        exclusionState[item.id] = !exclusionState[item.id];
+                        const isExcluded = exclusionState[item.id];
+
+                        toggleBtn.className = isExcluded ? 'toggle-btn excluded' : 'toggle-btn will-confirm';
+                        toggleBtn.textContent = isExcluded ? '未使用 (保留)' : '已使用';
+
+                        updateBatchButton();
+                    };
+                }
+
+                container.appendChild(card);
+            });
+
+            updateBatchButton();
+        }
+
+        // 切換詳情顯示
+        function toggleDetails(btn) {
+            const card = btn.closest('.item-card');
+            const details = card.querySelector('.item-details');
+            details.classList.toggle('expanded');
+            btn.textContent = details.classList.contains('expanded') ? '▲ 隱藏' : '▼ 詳情';
+        }
+
+        // 修改使用數量
+        function changeQty(itemId, delta) {
+            const item = allItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            const newQty = (item.usedQty || item.current_received_qty) + delta;
+            const maxQty = item.current_received_qty || 1;
+
+            if (newQty < 1 || newQty > maxQty) return;
+
+            item.usedQty = newQty;
+            const display = document.getElementById(`qty-${itemId}`);
+            if (display) display.textContent = newQty;
+        }
+
+        // 切換顯示全部
+        function toggleShowAll() {
+            showAllMode = !showAllMode;
+            const btn = document.getElementById("showAllBtn");
+            if (showAllMode) {
+                btn.textContent = "顯示待確認";
+                btn.style.background = "#f5576c";
+            } else {
+                btn.textContent = "顯示全部構件";
+                btn.style.background = "#667eea";
+            }
+            loadItems();
+        }
+
+        // 初始化
+        (async () => {
+            console.log("Initializing confirm.html...");
+            document.getElementById("showAllBtn").addEventListener("click", toggleShowAll);
+            document.getElementById("searchInput").addEventListener("input", renderFilteredItems);
+            document.getElementById("sortSelect").addEventListener("change", renderFilteredItems);
+
+            initDateSelector();
+            await loadItems();
+            console.log("Initialization complete.");
+        })();
+    </script>
 </body>
+
 </html>
