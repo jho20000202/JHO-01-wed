@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,9 @@
     <link rel="stylesheet" href="styles.css">
 
     <style>
-        body { padding: 20px; }
+        body {
+            padding: 20px;
+        }
 
         /* Header */
         .header-row {
@@ -16,11 +19,13 @@
             align-items: center;
             margin-bottom: 20px;
         }
+
         .header-title {
             font-size: 24px;
             font-weight: bold;
             color: #fff;
         }
+
         .back-btn {
             padding: 10px 20px;
             background: #2f3340;
@@ -57,6 +62,7 @@
             justify-content: space-between;
             margin-bottom: 25px;
         }
+
         .btn {
             flex: 1;
             padding: 14px;
@@ -66,11 +72,22 @@
             cursor: pointer;
             color: #fff;
         }
-        .btn:last-child { margin-right: 0; }
 
-        .btn-blue { background: #1e80ff; }
-        .btn-gray { background: #3a3d47; }
-        .btn-red { background: #d9534f; }
+        .btn:last-child {
+            margin-right: 0;
+        }
+
+        .btn-blue {
+            background: #1e80ff;
+        }
+
+        .btn-gray {
+            background: #3a3d47;
+        }
+
+        .btn-red {
+            background: #d9534f;
+        }
 
         /* List items */
         .item-card {
@@ -80,10 +97,12 @@
             margin-bottom: 18px;
             color: #fff;
         }
+
         .item-title {
             font-size: 18px;
             font-weight: bold;
         }
+
         .item-sub {
             margin-top: 6px;
             color: #bbb;
@@ -125,15 +144,31 @@
     <!-- List -->
     <div id="itemList" style="margin-top:30px;"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="back.js"></script>
     <script>
         // ---------------------------
-        //  示範資料（之後換成 Supabase）
+        //  Real Data Loading
         // ---------------------------
-        let items = [
-            { id: "UV0E3", pos: "32-33/F", spec: "PL25×500×650", weight: 89, qty: 1, in: "2025-01-03", use: "" },
-            { id: "UV0E3", pos: "32-33/G", spec: "PL25×500×650", weight: 89, qty: 1, in: "2025-01-03", use: "2025-01-04" },
-            { id: "UV0V1", pos: "32-33/F", spec: "RH300×300×10×15×5836.8", weight: 310, qty: 1, in: "", use: "" }
-        ];
+        let items = [];
+
+        async function loadData() {
+            // Use back.js helper to get joined data
+            const rows = await buildSummaryRows();
+
+            // Map to local format
+            items = rows.map(r => ({
+                id: r['構件編號'],
+                pos: r['構件位置'],
+                spec: r['構件規格'],
+                weight: r['構件重量'],
+                qty: r['構件數量'],
+                in: r['構件進料時間'],
+                use: r['構件使用時間']
+            }));
+
+            renderList();
+        }
 
         function renderList() {
             const list = document.getElementById("itemList");
@@ -142,7 +177,7 @@
 
             // 搜尋
             let filtered = items.filter(a =>
-                (a.id + a.pos + a.spec + a.weight + a.qty)
+                (String(a.id) + String(a.pos) + String(a.spec) + String(a.weight) + String(a.qty))
                     .toLowerCase()
                     .includes(search)
             );
@@ -155,14 +190,19 @@
                 filtered.sort((a, b) => (b.in || "") > (a.in || "") ? 1 : -1);
             }
             else if (sortMode === "nameAsc") {
-                filtered.sort((a, b) => a.id.localeCompare(b.id));
+                filtered.sort((a, b) => String(a.id).localeCompare(String(b.id)));
             }
             else if (sortMode === "nameDesc") {
-                filtered.sort((a, b) => b.id.localeCompare(a.id));
+                filtered.sort((a, b) => String(b.id).localeCompare(String(a.id)));
             }
 
             // 渲染
             list.innerHTML = "";
+            if (filtered.length === 0) {
+                list.innerHTML = "<div style='text-align:center;color:#bbb'>無資料</div>";
+                return;
+            }
+
             filtered.forEach(item => {
                 const card = document.createElement("div");
                 card.className = "item-card";
@@ -182,17 +222,19 @@
             });
         }
 
-        renderList();
-
         // ---------------------------
         //  Button Actions
         // ---------------------------
-        function previewExcel() {
-            alert("（示範）即將預覽 Excel\n\n之後會串本地產生的 Excel Blob");
+        async function previewExcel() {
+            const rows = await buildSummaryRows();
+            const blob = buildExcelFromRows(rows, '進料報表');
+            showExcelPreview(blob, '進料報表.xlsx');
         }
 
-        function exportExcel() {
-            alert("（示範）已匯出 Excel\n\n後續接你 back.js 的 Excel 生成");
+        async function exportExcel() {
+            const rows = await buildSummaryRows();
+            const blob = buildExcelFromRows(rows, '進料報表');
+            saveBlobWithPicker(blob, `進料報表_${new Date().toISOString().slice(0, 10)}.xlsx`);
         }
 
         // 兩次確認
@@ -200,14 +242,18 @@
 
         function confirmClear() {
             if (clearStep === 0) {
-                alert("再次點擊即可清除今日進料！");
+                alert("再次點擊即可清除今日進料！(此功能目前僅為示範)");
                 clearStep = 1;
                 return;
             }
             clearStep = 0;
-            alert("今日進料已清除！");
+            alert("今日進料已清除！(示範)");
         }
+
+        // Init
+        loadData();
     </script>
 
 </body>
+
 </html>
