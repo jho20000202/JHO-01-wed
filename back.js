@@ -34,9 +34,32 @@
   };
 
   window.remote_get = async function (table) {
-    const { data, error } = await window.supabaseClient.from(table).select('*');
-    if (error) { console.error('Supabase read error:', error); return []; }
-    return data || [];
+    let allData = [];
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await window.supabaseClient
+        .from(table)
+        .select('*')
+        .range(from, from + batchSize - 1);
+
+      if (error) {
+        console.error('Supabase read error:', error);
+        return allData; // Return what we have so far
+      }
+
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        from += batchSize;
+        hasMore = data.length === batchSize; // Continue if we got a full batch
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allData;
   };
 
   window.remote_insert = async function (table, row) {
@@ -50,41 +73,82 @@
     if (error) { console.error('Supabase update error:', error); return null; }
     return data;
   };
-  window.keyOf = function (item) { return String(item?.id || '') + '|' + String(item?.position || ''); };
+  window.keyOf = function (item) { return String(item?.id || item?.item_id || '') + '|' + String(item?.position || ''); };
   window.thousand = function (n) { const v = Number(n); return Number.isFinite(v) ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(n ?? ''); };
 
   // 狀態彙整
-  window.buildStatusMaps = function () {
-    const planned = getJSON('plannedItems', []);
-    const today = getJSON('todayRecords', []);
-    const used = getJSON('usedRecords', []);
+  window.buildStatusMaps = function (todayRecords, usedRecords) {
+    // Note: In new logic, 'usedRecords' might be same as 'todayRecords' filtered by status='used'
+    // But we keep flexibility.
+    const today = todayRecords || [];
+    const used = usedRecords || [];
+
     const receivedKeys = new Set(today.filter(r => r?.status === 'received').map(r => keyOf(r)));
     const latestUsed = new Map();
     const usedSumByKey = new Map();
+
     used.forEach(u => {
-      const k = keyOf(u); const qty = Number(u?.qty ?? u?.quantity ?? u?.usedQty) || 0; usedSumByKey.set(k, (usedSumByKey.get(k) || 0) + qty);
-      const cur = latestUsed.get(k) || ''; const curD = (used.find(x => keyOf(x) === k && String(x.usedAt) === cur)?.usedAtDate) || ''; const nd = u?.usedAtDate || ''; if (!cur || (nd && curD && nd > curD)) latestUsed.set(k, String(u.usedAt || ''));
+      const k = keyOf(u);
+      const qty = Number(u?.qty ?? u?.quantity ?? u?.usedQty) || 0;
+      usedSumByKey.set(k, (usedSumByKey.get(k) || 0) + qty);
+
+      const cur = latestUsed.get(k) || '';
+      // usedAtDate might not exist in Supabase data directly if not computed, use used_at or actual_at
+      const uDate = u.used_at || u.actual_at || '';
+      const curD = cur; // Simplified comparison for now
+
+      if (!cur || (uDate && uDate > cur)) latestUsed.set(k, String(uDate));
     });
     return { receivedKeys, latestUsed, usedSumByKey };
   };
 
   // 彙總列供報表/表格
-  window.buildSummaryRows = function () {
-    const libs = getJSON('componentsLibrary', []);
-    const { receivedKeys, latestUsed, usedSumByKey } = buildStatusMaps();
-    const rows = libs.slice().sort((a, b) => String(a.id).localeCompare(String(b.id))).map(item => {
-      const k = keyOf(item); const qty = Number(item?.quantity) || 0;
+  window.buildSummaryRows = function (componentsLibrary, plannedItems, todayRecords) {
+    const libs = componentsLibrary || [];
+    const plannedList = plannedItems || [];
+    const todayList = todayRecords || [];
+
+    // Derive used records from todayRecords where status is 'used'
+    const usedList = todayList.filter(r => r.status === 'used');
+
+    const { receivedKeys, latestUsed, usedSumByKey } = buildStatusMaps(todayList, usedList);
+
+    const rows = libs.slice().sort((a, b) => String(a.item_id).localeCompare(String(b.item_id))).map(item => {
+      const k = keyOf(item);
+      const qty = Number(item?.qty) || 0; // Supabase uses 'qty'
+
       const recvPct = qty ? (receivedKeys.has(k) ? 100 : 0) : 0;
       const usedPct = qty ? Math.round((usedSumByKey.get(k) || 0) * 100 / qty) : 0;
-      const planned = getJSON('plannedItems', []).find(p => keyOf(p) === k);
-      const today = getJSON('todayRecords', []).find(t => keyOf(t) === k);
-      const isDate = /\d{4}-\d{2}-\d{2}/.test(String(planned?.plannedAt || ''));
-      const recTime = (isDate ? String(planned?.plannedAt || '') : '') + (today?.actualAt ? (isDate ? (' ' + today.actualAt) : String(today.actualAt)) : '');
+
+      const planned = plannedList.find(p => keyOf(p) === k);
+      const today = todayList.find(t => keyOf(t) === k); // This might find *any* record for this item
+
+      const isDate = /\d{4}-\d{2}-\d{2}/.test(String(planned?.planned_date || ''));
+      // Use Supabase column names: planned_date, actual_at/used_at
+      const planDate = planned?.planned_date || '';
+      const actDate = today?.used_at || today?.actual_at || '';
+
+      const recTime = (planDate) + (actDate ? (' ' + actDate) : '');
       const useTime = latestUsed.get(k) || '';
-      const statusLabel = (useTime && String(useTime).trim() !== '') ? '已使用' : (receivedKeys.has(k) ? '已進料' : '');
+
+      // Status Logic
+      let statusLabel = '';
+      if (useTime) statusLabel = '已使用';
+      else if (receivedKeys.has(k)) statusLabel = '已進料';
+      else if (planDate) statusLabel = '預定中';
+      else statusLabel = '未進料';
+
       return {
-        '構件編號': item.id || '', '構件規格': item.spec || '', '構件位置': item.position || '', '構件重量': item.weight ?? '', '構件數量': qty,
-        '構件目前狀態': statusLabel, '構件進料時間': recTime, '構件使用時間': useTime, '構件進料進度': `${recvPct}%`, '構件使用進度': `${usedPct}%`
+        '構件編號': item.item_id || '',
+        '構件規格': item.spec || '',
+        '構件位置': item.position || '',
+        '構件重量': item.weight ?? '',
+        '構件數量': qty,
+        '構件目前狀態': statusLabel,
+        '構件進料時間': recTime,
+        '構件使用時間': useTime,
+        '構件進料進度': `${recvPct}%`,
+        '構件使用進度': `${usedPct}%`
       };
     });
     return rows;
@@ -265,6 +329,53 @@
     } catch (error) {
       console.error('Import error:', error);
       alert('匯入失敗：' + error.message);
+    }
+  };
+
+  // 清除所有資料
+  window.clearAll = async function () {
+    try {
+      const db = window.supabaseClient;
+      if (!db) {
+        alert('資料庫連線失敗');
+        return;
+      }
+
+      console.log("Starting full data clear...");
+
+      // Delete from all tables in correct order (child -> parent)
+      const tables = ['today_records', 'planned_items', 'components_library'];
+
+      for (const table of tables) {
+        // 1. Fetch all IDs first
+        const { data: rows, error: fetchError } = await db.from(table).select('id');
+
+        if (fetchError) {
+          console.error(`Error fetching IDs from ${table}:`, fetchError);
+          throw fetchError;
+        }
+
+        if (rows && rows.length > 0) {
+          const ids = rows.map(r => r.id);
+          // 2. Delete by ID list
+          const { error: deleteError } = await db.from(table).delete().in('id', ids);
+
+          if (deleteError) {
+            console.error(`Error clearing ${table}:`, deleteError);
+            throw deleteError;
+          }
+          console.log(`Cleared ${ids.length} rows from ${table}`);
+        } else {
+          console.log(`Table ${table} is already empty.`);
+        }
+      }
+
+      alert('所有資料已清除！');
+      location.reload();
+
+    } catch (error) {
+      console.error('Clear all error:', error);
+      alert('清除失敗：' + error.message);
     }
   };
 
