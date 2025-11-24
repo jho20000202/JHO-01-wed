@@ -99,7 +99,7 @@
   <div id="listContainer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="back.js"></script>
+  <script src="back.js?v=2"></script>
   <script>
     /***************************
      *  圓形進度環繪製
@@ -137,29 +137,28 @@
       const records = await db_read("today_records");
       const planned = await db_read("planned_items");
 
-      // 去除 item_id 重複
-      const total = new Set(components.map(x => x.item_id)).size;
+      // 計算總數量（累加所有構件的 qty）
+      const total = components.reduce((sum, x) => sum + (x.qty || 0), 0);
 
-      const receivedSet = new Set(
-        records.filter(r => r.status === "received").map(r => r.item_id)
-      );
+      // 計算已進料數量（從 planned_items 中累加 received_qty）
+      const receivedQty = planned
+        .filter(p => p.status === "received")
+        .reduce((sum, p) => sum + (p.received_qty || 0), 0);
 
-      const usedSet = new Set(
-        records.filter(r => r.status === "used").map(r => r.item_id)
-      );
-
-      const received = receivedSet.size;
-      const used = usedSet.size;
+      // 計算已使用數量（從 today_records 中累加 qty）
+      const usedQty = records
+        .filter(r => r.status === "used")
+        .reduce((sum, r) => sum + (r.qty || 0), 0);
 
       // 更新進度環
-      drawProgress("circleReceived", total ? received / total : 0);
-      drawProgress("circleUsed", total ? used / total : 0);
+      drawProgress("circleReceived", total ? receivedQty / total : 0);
+      drawProgress("circleUsed", total ? usedQty / total : 0);
 
       document.getElementById("receivedLabel").textContent =
-        `已進料 ${received}/${total} (${total ? ((received / total) * 100).toFixed(0) : 0}%)`;
+        `已進料 ${receivedQty}/${total} (${total ? ((receivedQty / total) * 100).toFixed(0) : 0}%)`;
 
       document.getElementById("usedLabel").textContent =
-        `已使用 ${used}/${total} (${total ? ((used / total) * 100).toFixed(0) : 0}%)`;
+        `已使用 ${usedQty}/${total} (${total ? ((usedQty / total) * 100).toFixed(0) : 0}%)`;
 
       // Process all items first
       allItems = components.map(c => {
@@ -260,6 +259,7 @@
     loadProgress();
   </script>
 
+  <script src="backToTop.js"></script>
 </body>
 
 </html>
