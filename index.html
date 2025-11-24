@@ -200,16 +200,22 @@
 
         /* 響應式設計 */
         @media (max-width: 768px) {
-            .menu-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .progress-container {
-                flex-direction: column;
-            }
+            /* 保持 2欄排列 & 左右排列，不強制變為單欄 */
+            /* .menu-grid { grid-template-columns: 1fr; } */
+            /* .progress-container { flex-direction: column; } */
 
             .row-btns {
                 flex-direction: column;
+            }
+
+            /* 調整圓環大小以適應手機 */
+            .circle-svg {
+                width: 120px;
+                height: 120px;
+            }
+
+            .progress-container {
+                gap: 10px;
             }
         }
     </style>
@@ -283,8 +289,6 @@
                 <button class="ghost-btn" onclick="exportBackup()">備份匯出</button>
                 <button class="ghost-btn" onclick="importBackup()">備份匯入</button>
             </div>
-
-            <button id="clearBtn" class="danger-btn full">清除所有資料</button>
         </section>
 
     </main>
@@ -300,35 +304,37 @@
         });
 
         /* -------------------------------------
-           清除所有資料（需要按兩次）
-        --------------------------------------*/
-        let clearState = 0;
-
-        document.getElementById("clearBtn").addEventListener("click", () => {
-            if (clearState === 0) {
-                alert("你確定要清除所有資料嗎？");
-                clearState = 1;
-                setTimeout(() => clearState = 0, 4000); // 4秒內有效
-                return;
-            }
-
-            if (clearState === 1) {
-                if (confirm("此動作無法復原，是否繼續？")) {
-                    clearAll(); // back.js 內既有的功能
-                }
-                clearState = 0;
-            }
-        });
-
-        /* -------------------------------------
            更新圓環（使用 Supabase 資料）
         --------------------------------------*/
         async function loadDashboard() {
             const db = window.supabaseClient;
 
             try {
-                // 1. 獲取構件庫 (總數 & 重量)
-                const { data: library } = await db.from("components_library").select("item_id, qty, weight");
+                // 1. 獲取構件庫 (總數 & 重量) - 使用分頁獲取所有資料
+                let library = [];
+                let from = 0;
+                const batchSize = 1000;
+                let hasMore = true;
+
+                while (hasMore) {
+                    const { data, error } = await db
+                        .from("components_library")
+                        .select("item_id, qty, weight")
+                        .range(from, from + batchSize - 1);
+
+                    if (error) {
+                        console.error('Error fetching components_library:', error);
+                        break;
+                    }
+
+                    if (data && data.length > 0) {
+                        library = library.concat(data);
+                        from += batchSize;
+                        hasMore = data.length === batchSize;
+                    } else {
+                        hasMore = false;
+                    }
+                }
 
                 let totalQty = 0;
                 let totalWeight = 0;
@@ -421,6 +427,7 @@
         }
     </script>
 
+    <script src="backToTop.js"></script>
 </body>
 
 </html>
