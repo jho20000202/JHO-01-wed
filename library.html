@@ -33,6 +33,37 @@
             background: #2ecc71;
         }
 
+        /* 狀態篩選卡片 */
+        .status-filter-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: #1c2433;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #aaa;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .status-filter-card:hover {
+            background: #242d3f;
+            color: #fff;
+        }
+
+        .status-filter-card.active {
+            background: #2f7dff;
+            color: #fff;
+            border-color: #4d94ff;
+        }
+
+        .status-filter-card .status-dot {
+            flex-shrink: 0;
+        }
+
         /* 卡片 */
         .item-card {
             background: #1c2433;
@@ -149,6 +180,7 @@
             fill: #fff;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
 </head>
 
 <body>
@@ -165,16 +197,20 @@
         <!-- 🔵 構件狀態切換 -->
         <div class="section-title">構件狀態</div>
 
-        <div class="row" id="statusFilters" style="margin-bottom:12px;">
-            <label><input type="radio" name="filterStatus" value="all" checked> 全部</label>
-            <label><input type="radio" name="filterStatus" value="grey"> <span
-                    class="status-dot dot-grey"></span>未進料</label>
-            <label><input type="radio" name="filterStatus" value="yellow"> <span
-                    class="status-dot dot-yellow"></span>預定中</label>
-            <label><input type="radio" name="filterStatus" value="orange"> <span
-                    class="status-dot dot-orange"></span>已進料</label>
-            <label><input type="radio" name="filterStatus" value="green"> <span
-                    class="status-dot dot-green"></span>已使用</label>
+        <div id="statusFilters" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+            <div class="status-filter-card active" data-status="all">全部</div>
+            <div class="status-filter-card" data-status="grey">
+                <span class="status-dot dot-grey"></span>未進料
+            </div>
+            <div class="status-filter-card" data-status="yellow">
+                <span class="status-dot dot-yellow"></span>預定中
+            </div>
+            <div class="status-filter-card" data-status="orange">
+                <span class="status-dot dot-orange"></span>已進料
+            </div>
+            <div class="status-filter-card" data-status="green">
+                <span class="status-dot dot-green"></span>已使用
+            </div>
         </div>
 
         <!-- 🔽 排序 -->
@@ -190,17 +226,6 @@
 
         <!-- 搜尋 -->
         <input id="searchBox" class="input-bar" placeholder="搜尋：編號 / 規格 / 材質 / 位置">
-
-        <!-- 📤 匯入 Excel 自動解析 -->
-        <div class="section-title">匯入 Excel / CSV</div>
-
-        <!-- 隱藏檔案選擇器 -->
-        <input type="file" id="filePicker" accept=".xlsx,.xls,.csv" style="display:none">
-
-        <div id="importBtn" class="primary-btn full">匯入 Excel / CSV</div>
-
-        <!-- 📥 下載 CSV 模板 -->
-        <div id="downloadCSV" class="ghost-btn full">下載 CSV 模板</div>
 
     </div>
 
@@ -226,11 +251,63 @@
             <path d="M12 4l-8 8h5v8h6v-8h5z"></path>
         </svg>
     </div>
+    <!-- SheetJS for Excel Import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="back.js"></script>
 
     <script>
+        /* ==========================================
+           Google Drive 圖紙預覽功能
+        ========================================== */
+
+        // 模糊搜尋圖紙
+        async function findDrawing(itemId) {
+            const db = window.supabaseClient;
+            const { data, error } = await db.from("drawing_index").select("*");
+
+            if (error || !data || data.length === 0) {
+                console.error("Failed to load drawing index:", error);
+                return null;
+            }
+
+            const fuse = new Fuse(data, {
+                keys: ["file_name", "item_hint"],
+                threshold: 0.3,
+                ignoreLocation: true
+            });
+
+            const result = fuse.search(itemId);
+
+            if (result.length === 0) return null;
+            return result[0].item;
+        }
+
+        // 預覽圖紙
+        async function previewDrawing(itemId, itemName) {
+            const drawing = await findDrawing(itemId);
+
+            if (!drawing) {
+                alert("找不到對應的圖面！");
+                return;
+            }
+
+            document.getElementById("pdfTitle").textContent = `${itemName || itemId} - ${drawing.file_name}`;
+            document.getElementById("pdfFrame").src =
+                `https://drive.google.com/file/d/${drawing.drive_id}/preview`;
+            document.getElementById("pdfModal").style.display = "block";
+        }
+
+        // 關閉 Modal
+        function closePdfModal() {
+            document.getElementById("pdfModal").style.display = "none";
+            document.getElementById("pdfFrame").src = "";
+        }
+
+        /* ==========================================
+           原有代碼開始
+        ========================================== */
         /* ==========================================
            🔧 Supabase 初始化
         ========================================== */
@@ -389,6 +466,12 @@
                     <div class="item-sub">位置：${c.position || ""}</div>
                     <div class="item-sub">重量：${c.weight || ""}</div>
                     <div class="item-sub">數量：${c.qty || 1}</div>
+                    <div style="margin-top:10px;">
+                        <button onclick="event.stopPropagation(); previewDrawing('${c.item_id}', '${(c.spec || '').replace(/'/g, "\\'")}');" 
+                                style="padding:8px 14px; background:#2f7dff; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600;">
+                            📄 圖紙
+                        </button>
+                    </div>
                 </div>
 
             </div>
@@ -453,10 +536,16 @@
         /* ==========================================
            Step 7：構件狀態分類（未 / 預 / 進 / 用）
         ========================================== */
-        document.querySelectorAll("input[name=filterStatus]").forEach(radio => {
-            radio.addEventListener("change", async (e) => {
+        document.querySelectorAll(".status-filter-card").forEach(card => {
+            card.addEventListener("click", async (e) => {
+                // Remove active class from all cards
+                document.querySelectorAll(".status-filter-card").forEach(c => c.classList.remove("active"));
 
-                currentFilter = e.target.value;
+                // Add active class to clicked card
+                card.classList.add("active");
+
+                // Get the status value
+                currentFilter = card.dataset.status;
 
                 // Reset infinite scroll
                 offset = 0;
@@ -482,91 +571,6 @@
 
             await loadNextBatch();
         });
-
-        /* ==========================================
-           Step 9：匯入 Excel / CSV（Lazy XLSX）
-        ========================================== */
-        document.getElementById("importBtn").addEventListener("click", () => {
-            document.getElementById("filePicker").click();
-        });
-
-        document.getElementById("filePicker").addEventListener("change", async (e) => {
-
-            const file = e.target.files[0];
-            if (!file) return;
-
-            alert("正在匯入資料…");
-
-            const ext = file.name.split(".").pop().toLowerCase();
-            const buffer = await file.arrayBuffer();
-            let json = [];
-
-            try {
-                if (ext === "csv") {
-                    json = csvToJSON(new TextDecoder("utf-8").decode(new Uint8Array(buffer)));
-                } else {
-                    const wb = XLSX.read(buffer, { type: "array" });
-                    const ws = wb.Sheets[wb.SheetNames[0]];
-                    json = XLSX.utils.sheet_to_json(ws);
-                }
-            } catch (err) {
-                console.error(err);
-                alert("檔案解析失敗");
-                return;
-            }
-
-            if (!json.length) return alert("檔案無資料");
-
-            const required = [
-                "構件編號", "構件規格", "構件材質",
-                "構件重量", "構件位置", "構件數量"
-            ];
-
-            for (let r of required) {
-                if (!json[0][r]) return alert("缺少欄位：" + r);
-            }
-
-            const insertData = json.map(r => ({
-                item_id: String(r["構件編號"]).trim(),
-                spec: r["構件規格"] || "",
-                material: r["構件材質"] || "",
-                weight: Number(r["構件重量"]) || 0,
-                position: r["構件位置"] || "",
-                qty: Number(r["構件數量"]) || 1
-            }));
-
-            const { error } = await db.from("components_library").upsert(insertData);
-
-            if (error) {
-                alert("匯入失敗：" + error.message);
-            } else {
-                alert("匯入完成！");
-                offset = 0;
-                allLoaded = false;
-                itemList.innerHTML = "";
-                await loadMetaData();
-                await loadNextBatch();
-            }
-
-            e.target.value = "";
-        });
-
-        /* ==========================================
-           CSV → JSON
-        ========================================== */
-        function csvToJSON(csv) {
-            const lines = csv.split("\n").map(x => x.trim()).filter(x => x);
-            const headers = lines[0].split(",");
-            const result = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i].split(",");
-                const obj = {};
-                headers.forEach((h, idx) => obj[h] = row[idx] || "");
-                result.push(obj);
-            }
-            return result;
-        }
 
         /* ==========================================
            Step 10：回到頂端按鈕
@@ -602,35 +606,6 @@
         });
 
         /* ==========================================
-           Step 12：📥 下載 CSV 模板（已修好）
-        ========================================== */
-        document.getElementById("downloadCSV").addEventListener("click", () => {
-
-            const BOM = "\uFEFF"; // Excel UTF-8
-
-            const header =
-                "構件編號,構件規格,構件材質,構件重量,構件位置,構件數量\n";
-
-            const sample =
-                "UV0E3,PL25*500*650,SN490BM,89,32-33/F,1\n" +
-                "UV0V1,RH300*300*10*15*5836.8,SN490BM,576,32-33/H,1\n";
-
-            const content = BOM + header + sample;
-
-            const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "構件清單模板.csv";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            URL.revokeObjectURL(url);
-        });
-
-        /* ==========================================
            🚀 初始化（載 metadata → 第一批構件）
         ========================================== */
         (async () => {
@@ -638,3 +613,21 @@
             await loadNextBatch();
         })();
     </script>
+
+    <!-- PDF 預覽 Modal -->
+    <div id="pdfModal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9999; padding:20px;">
+        <div style="height:100%; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
+                <span id="pdfTitle" style="color:#fff; font-size:18px; font-weight:600;"></span>
+                <button onclick="closePdfModal()"
+                    style="background:#ff4b4b; color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600;">✖
+                    關閉</button>
+            </div>
+            <iframe id="pdfFrame" style="flex:1; width:100%; border:0; border-radius:12px; background:#fff;"></iframe>
+        </div>
+    </div>
+
+</body>
+
+</html>
