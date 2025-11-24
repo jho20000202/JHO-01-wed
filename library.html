@@ -180,7 +180,6 @@
             fill: #fff;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
 </head>
 
 <body>
@@ -258,56 +257,6 @@
     <script src="back.js"></script>
 
     <script>
-        /* ==========================================
-           Google Drive 圖紙預覽功能
-        ========================================== */
-
-        // 模糊搜尋圖紙
-        async function findDrawing(itemId) {
-            const db = window.supabaseClient;
-            const { data, error } = await db.from("drawing_index").select("*");
-
-            if (error || !data || data.length === 0) {
-                console.error("Failed to load drawing index:", error);
-                return null;
-            }
-
-            const fuse = new Fuse(data, {
-                keys: ["file_name", "item_hint"],
-                threshold: 0.3,
-                ignoreLocation: true
-            });
-
-            const result = fuse.search(itemId);
-
-            if (result.length === 0) return null;
-            return result[0].item;
-        }
-
-        // 預覽圖紙
-        async function previewDrawing(itemId, itemName) {
-            const drawing = await findDrawing(itemId);
-
-            if (!drawing) {
-                alert("找不到對應的圖面！");
-                return;
-            }
-
-            document.getElementById("pdfTitle").textContent = `${itemName || itemId} - ${drawing.file_name}`;
-            document.getElementById("pdfFrame").src =
-                `https://drive.google.com/file/d/${drawing.drive_id}/preview`;
-            document.getElementById("pdfModal").style.display = "block";
-        }
-
-        // 關閉 Modal
-        function closePdfModal() {
-            document.getElementById("pdfModal").style.display = "none";
-            document.getElementById("pdfFrame").src = "";
-        }
-
-        /* ==========================================
-           原有代碼開始
-        ========================================== */
         /* ==========================================
            🔧 Supabase 初始化
         ========================================== */
@@ -466,12 +415,6 @@
                     <div class="item-sub">位置：${c.position || ""}</div>
                     <div class="item-sub">重量：${c.weight || ""}</div>
                     <div class="item-sub">數量：${c.qty || 1}</div>
-                    <div style="margin-top:10px;">
-                        <button onclick="event.stopPropagation(); previewDrawing('${c.item_id}', '${(c.spec || '').replace(/'/g, "\\'")}');" 
-                                style="padding:8px 14px; background:#2f7dff; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600;">
-                            📄 圖紙
-                        </button>
-                    </div>
                 </div>
 
             </div>
@@ -613,21 +556,3 @@
             await loadNextBatch();
         })();
     </script>
-
-    <!-- PDF 預覽 Modal -->
-    <div id="pdfModal"
-        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9999; padding:20px;">
-        <div style="height:100%; display:flex; flex-direction:column;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
-                <span id="pdfTitle" style="color:#fff; font-size:18px; font-weight:600;"></span>
-                <button onclick="closePdfModal()"
-                    style="background:#ff4b4b; color:#fff; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600;">✖
-                    關閉</button>
-            </div>
-            <iframe id="pdfFrame" style="flex:1; width:100%; border:0; border-radius:12px; background:#fff;"></iframe>
-        </div>
-    </div>
-
-</body>
-
-</html>
