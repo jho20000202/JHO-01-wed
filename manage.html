@@ -177,6 +177,21 @@
 
     <div id="itemList"></div>
 
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal"
+        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#1c2433; padding:24px; border-radius:16px; max-width:400px; width:90%; color:#fff;">
+            <div style="font-size:18px; font-weight:bold; margin-bottom:12px;">確認刪除</div>
+            <div id="confirmMessage" style="margin-bottom:20px; color:#ccc;"></div>
+            <div style="display:flex; gap:10px;">
+                <button id="confirmYes"
+                    style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:15px;">確定刪除</button>
+                <button id="confirmNo"
+                    style="flex:1; padding:12px; background:#7f8c8d; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:15px;">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="back.js"></script>
     <script>
@@ -369,8 +384,8 @@
                 </div>
 
                 <div class="row">
-                    <div class="btn-update" onclick="saveItem(${item.id}, '${item.item_id}')">更新</div>
-                    <div class="btn-delete" onclick="deleteItem(${item.id})">刪除</div>
+                    <div class="btn-update" onclick="event.stopPropagation(); saveItem(${item.id}, '${item.item_id}')">更新</div>
+                    <div class="btn-delete" onclick="event.stopPropagation(); removeItem(${item.id})">刪除</div>
                 </div>
             </div>
         `;
@@ -541,24 +556,45 @@
             }
         }
 
-        /* 刪除構件 */
-        async function deleteItem(id) {
-            if (!confirm("確定要刪除此構件嗎？")) return;
+        /* 刪除構件 (使用自定義 Modal) */
+        function removeItem(id) {
+            console.log("Removing item:", id);
 
-            const { error } = await db.from("components_library").delete().eq("id", id);
+            const modal = document.getElementById('confirmModal');
+            const msg = document.getElementById('confirmMessage');
+            const btnYes = document.getElementById('confirmYes');
+            const btnNo = document.getElementById('confirmNo');
 
-            if (error) {
-                alert("刪除失敗：" + error.message);
-                return;
-            }
+            msg.textContent = `確定要刪除此構件 (ID: ${id}) 嗎？`;
+            modal.style.display = 'flex';
 
-            loadItems();
+            // Clean up previous listeners
+            const newBtnYes = btnYes.cloneNode(true);
+            const newBtnNo = btnNo.cloneNode(true);
+            btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+            btnNo.parentNode.replaceChild(newBtnNo, btnNo);
+
+            newBtnYes.onclick = async () => {
+                modal.style.display = 'none';
+                try {
+                    const { error } = await db.from("components_library").delete().eq("id", id);
+                    if (error) throw error;
+                    loadItems();
+                } catch (e) {
+                    alert("刪除失敗：" + e.message);
+                }
+            };
+
+            newBtnNo.onclick = () => {
+                modal.style.display = 'none';
+            };
         }
 
         /* INIT */
         loadItems();
     </script>
 
+    <script src="backToTop.js"></script>
 </body>
 
 </html>
