@@ -519,6 +519,24 @@
 
             console.log("Submitting item:", { id, date, qty });
 
+            // 驗證構件編號是否存在於 components_library
+            const { data: existingComponent, error: checkError } = await db
+                .from("components_library")
+                .select("item_id")
+                .eq("item_id", id)
+                .limit(1);
+
+            if (checkError) {
+                console.error("Check error:", checkError);
+                alert("驗證失敗: " + checkError.message);
+                return;
+            }
+
+            if (!existingComponent || existingComponent.length === 0) {
+                alert("❌ 查無此構件編號！\n\n請先在「構件管理」中新增此構件。");
+                return;
+            }
+
             const { data, error } = await db.from("planned_items").insert({
                 item_id: id,
                 planned_date: date,
