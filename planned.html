@@ -132,7 +132,8 @@
     <!-- 輸入欄 -->
     <div class="screen-card">
         <div class="section-title">構件編號</div>
-        <input id="itemIdInput" class="input-bar" placeholder="例如 A-001">
+        <input id="itemIdInput" class="input-bar" placeholder="例如 A-001" style="text-transform: uppercase;"
+            oninput="this.value = this.value.toUpperCase()">
 
         <div class="section-title">預計到貨日期</div>
         <input id="dateInput" class="input-bar" placeholder="點擊選擇日期" readonly
@@ -405,6 +406,7 @@
                             position: pos,
                             qty: 1,
                             status: "received",
+                            received_at: new Date().toISOString(),
                             used_at: new Date().toISOString()
                         };
 
@@ -568,7 +570,9 @@
         })();
     </script>
 
+    <script src="uppercase.js"></script>
     <script src="backToTop.js"></script>
 </body>
 
 </html>
+```
