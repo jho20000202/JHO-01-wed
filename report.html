@@ -50,6 +50,69 @@
             background: #242d3f;
             font-weight: 600;
         }
+
+        /* ===== 小日曆 ===== */
+        #calendarOverlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            z-index: 2000;
+        }
+
+        #calendarPanel {
+            position: absolute;
+            background: #1c2433;
+            padding: 14px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .7);
+            width: 280px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .cal-nav-btn {
+            background: #2f7dff;
+            border-radius: 999px;
+            padding: 4px 10px;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+
+        .day-name {
+            text-align: center;
+            color: #9aa0a6;
+            font-size: 12px;
+        }
+
+        .day-cell {
+            text-align: center;
+            padding: 7px 0;
+            border-radius: 10px;
+            background: #141a28;
+            cursor: pointer;
+        }
+
+        .day-cell:hover {
+            background: #2f7dff;
+        }
+
+        .day-disabled {
+            opacity: .15;
+            pointer-events: none;
+        }
     </style>
 </head>
 
@@ -78,6 +141,13 @@
             <option value="progress">進度表</option>
         </select>
 
+        <!-- Date Selection -->
+        <div id="dateSelectionContainer" style="display:none;">
+            <div class="section-title" style="font-size:16px; margin-top:20px;">選擇日期</div>
+            <input type="text" id="reportDate" class="input-bar" placeholder="點擊選擇日期" readonly
+                style="margin-bottom:20px; cursor:pointer; background:#1c2433;">
+        </div>
+
         <div class="row-btns">
             <button id="previewBtn" class="ghost-btn">預覽報表</button>
             <button id="exportBtn" class="primary-btn" style="flex:2">匯出 Excel 報表</button>
@@ -86,6 +156,18 @@
         <div id="previewContainer" class="preview-container">
             <div class="section-title" style="font-size:16px; margin-bottom:10px;">報表預覽 (前 50 筆)</div>
             <div id="tableWrapper"></div>
+        </div>
+    </div>
+
+    <!-- 小日曆 -->
+    <div id="calendarOverlay">
+        <div id="calendarPanel">
+            <div class="calendar-header">
+                <button id="calPrev" class="cal-nav-btn">〈</button>
+                <div id="calTitle"></div>
+                <button id="calNext" class="cal-nav-btn">〉</button>
+            </div>
+            <div id="calendarGrid" class="calendar-grid"></div>
         </div>
     </div>
 
@@ -123,14 +205,18 @@
                 const { library, planned, today } = await fetchAllData();
 
                 let rows = [];
-                const todayDate = new Date().toISOString().split('T')[0];
+                // Use selected date or default to today
+                const reportDateInput = document.getElementById('reportDate');
+                const selectedDate = reportDateInput.value || new Date().toISOString().split('T')[0];
+                const todayDate = selectedDate;
 
                 switch (reportType) {
                     case 'today_received':
-                        // 本日進料：today_records where status='received' and created today
+                        // 本日進料：show all items received on selected date (regardless of current status)
                         const receivedToday = today.filter(r => {
-                            const recordDate = r.created_at ? r.created_at.split('T')[0] : '';
-                            return r.status === 'received' && recordDate === todayDate;
+                            const recordDate = r.received_at ? r.received_at.split('T')[0] : (r.created_at ? r.created_at.split('T')[0] : '');
+                            // Show items that were received on this date, even if later used
+                            return recordDate === todayDate;
                         });
 
                         rows = receivedToday.map(r => {
@@ -141,7 +227,8 @@
                                 '構件位置': r.position || '',
                                 '構件重量': libItem?.weight || '',
                                 '進料數量': r.qty || 0,
-                                '進料時間': r.created_at || ''
+                                '進料時間': r.received_at || r.created_at || '',
+                                '當前狀態': r.status === 'used' ? '已吊裝' : '已簽收'
                             };
                         });
                         break;
@@ -244,6 +331,95 @@
             const previewBtn = document.getElementById('previewBtn');
             const exportBtn = document.getElementById('exportBtn');
             const previewContainer = document.getElementById('previewContainer');
+            const reportTypeSelect = document.getElementById('reportType');
+            const dateSelectionContainer = document.getElementById('dateSelectionContainer');
+            const reportDateInput = document.getElementById('reportDate');
+            const calOverlay = document.getElementById('calendarOverlay');
+            const calPanel = document.getElementById('calendarPanel');
+            const calGrid = document.getElementById('calendarGrid');
+            const calTitle = document.getElementById('calTitle');
+            const calPrev = document.getElementById('calPrev');
+            const calNext = document.getElementById('calNext');
+
+            let calCurrent = new Date();
+            calCurrent.setDate(1);
+
+            // Set default date to today
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            reportDateInput.value = todayStr;
+
+            // Calendar functions
+            function renderCalendar() {
+                calGrid.innerHTML = '';
+                const y = calCurrent.getFullYear();
+                const m = calCurrent.getMonth();
+                calTitle.textContent = `${y} / ${String(m + 1).padStart(2, '0')}`;
+                const first = new Date(y, m, 1);
+                const last = new Date(y, m + 1, 0);
+
+                const weekday = first.getDay();
+                const days = last.getDate();
+
+                ['日', '一', '二', '三', '四', '五', '六'].forEach(n => {
+                    const d = document.createElement('div');
+                    d.className = 'day-name';
+                    d.textContent = n;
+                    calGrid.appendChild(d);
+                });
+
+                for (let i = 0; i < weekday; i++) {
+                    const blank = document.createElement('div');
+                    blank.className = 'day-cell day-disabled';
+                    calGrid.appendChild(blank);
+                }
+
+                for (let d = 1; d <= days; d++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'day-cell';
+                    cell.textContent = d;
+                    cell.onclick = () => {
+                        const mm = String(m + 1).padStart(2, '0');
+                        const dd = String(d).padStart(2, '0');
+                        reportDateInput.value = `${y}-${mm}-${dd}`;
+                        calOverlay.style.display = 'none';
+                    };
+                    calGrid.appendChild(cell);
+                }
+            }
+
+            // Calendar event listeners
+            reportDateInput.addEventListener('click', () => {
+                const rect = reportDateInput.getBoundingClientRect();
+                calOverlay.style.display = 'block';
+                calPanel.style.top = rect.bottom + 8 + 'px';
+                calPanel.style.left = rect.left + 'px';
+                renderCalendar();
+            });
+
+            calOverlay.addEventListener('click', e => {
+                if (e.target === calOverlay) calOverlay.style.display = 'none';
+            });
+
+            calPrev.onclick = () => {
+                calCurrent.setMonth(calCurrent.getMonth() - 1);
+                renderCalendar();
+            };
+
+            calNext.onclick = () => {
+                calCurrent.setMonth(calCurrent.getMonth() + 1);
+                renderCalendar();
+            };
+
+            // Show/hide date selection based on report type
+            reportTypeSelect.addEventListener('change', () => {
+                const reportType = reportTypeSelect.value;
+                if (reportType === 'today_received' || reportType === 'today_used') {
+                    dateSelectionContainer.style.display = 'block';
+                } else {
+                    dateSelectionContainer.style.display = 'none';
+                }
+            });
 
             // Preview Handler
             previewBtn.addEventListener('click', async () => {
@@ -277,6 +453,7 @@
 
                 if (rows.length > 0) {
                     const reportType = document.getElementById('reportType').value;
+                    const selectedDate = document.getElementById('reportDate').value || new Date().toISOString().split('T')[0];
                     let reportName = '構件狀態報表';
 
                     switch (reportType) {
@@ -296,7 +473,7 @@
                     }
 
                     const blob = window.buildExcelFromRows(rows, reportName);
-                    const filename = `${reportName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    const filename = `${reportName}_${selectedDate}.xlsx`;
                     window.downloadBlob(filename, blob);
                 } else {
                     alert("無資料可匯出");
