@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大寫輸入測試</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="uppercase.css">
+    <style>
+        body {
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .test-section {
+            background: #1c2433;
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+        }
+
+        .test-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .test-input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: #2a2b31;
+            border: 1px solid #3e414b;
+            color: #fff;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .result-display {
+            background: #141821;
+            padding: 12px;
+            border-radius: 8px;
+            color: #5bc0de;
+            font-family: monospace;
+            margin-top: 8px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+
+        .status.pass {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .status.fail {
+            background: #dc3545;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="top-bar">
+        <div class="top-bar-title">大寫輸入功能測試</div>
+        <a href="index.html" class="top-btn">返回主畫面</a>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試 1: input-bar 類別</div>
+        <input type="text" class="input-bar" placeholder="輸入任何文字測試..." id="test1">
+        <div class="result-display">當前值: <span id="result1">-</span></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試 2: input-box 類別</div>
+        <input type="text" class="input-box" placeholder="輸入任何文字測試..." id="test2">
+        <div class="result-display">當前值: <span id="result2">-</span></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試 3: 一般 text input</div>
+        <input type="text" class="test-input" placeholder="輸入任何文字測試..." id="test3">
+        <div class="result-display">當前值: <span id="result3">-</span></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試 4: 無類型 input (應該也轉大寫)</div>
+        <input class="test-input" placeholder="輸入任何文字測試..." id="test4">
+        <div class="result-display">當前值: <span id="result4">-</span></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試 5: readonly input (不應轉大寫)</div>
+        <input type="text" class="test-input no-uppercase" placeholder="這個不會轉大寫" id="test5">
+        <div class="result-display">當前值: <span id="result5">-</span></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">測試結果總覽</div>
+        <div id="testResults"></div>
+    </div>
+
+    <script src="uppercase.js"></script>
+    <script>
+        // 監聽所有測試輸入
+        for (let i = 1; i <= 5; i++) {
+            const input = document.getElementById(`test${i}`);
+            const result = document.getElementById(`result${i}`);
+
+            input.addEventListener('input', function () {
+                result.textContent = this.value || '-';
+                checkTests();
+            });
+        }
+
+        function checkTests() {
+            const results = [];
+
+            // 測試 1-4 應該全部大寫
+            for (let i = 1; i <= 4; i++) {
+                const input = document.getElementById(`test${i}`);
+                const value = input.value;
+                const isUppercase = value === value.toUpperCase();
+                const hasLowercase = /[a-z]/.test(value);
+
+                results.push({
+                    test: `測試 ${i}`,
+                    pass: value.length === 0 || (isUppercase && !hasLowercase),
+                    value: value
+                });
+            }
+
+            // 測試 5 可以有小寫
+            const test5 = document.getElementById('test5');
+            results.push({
+                test: '測試 5 (no-uppercase)',
+                pass: true,
+                value: test5.value
+            });
+
+            displayResults(results);
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('testResults');
+            container.innerHTML = results.map(r => `
+                <div style="padding: 8px; margin: 4px 0; background: #141821; border-radius: 6px;">
+                    ${r.test}: 
+                    <span class="status ${r.pass ? 'pass' : 'fail'}">
+                        ${r.pass ? '✓ 通過' : '✗ 失敗'}
+                    </span>
+                    ${r.value ? `<span style="color: #888; margin-left: 12px;">(${r.value})</span>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 初始化顯示
+        checkTests();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,13 @@
+/* 全局大寫輸入樣式 */
+.uppercase-input {
+    text-transform: uppercase !important;
+}
+
+/* 為所有文本輸入添加大寫轉換 */
+input[type="text"]:not([readonly]):not(.no-uppercase),
+input:not([type]):not([readonly]):not(.no-uppercase),
+.input-bar:not([readonly]):not(.no-uppercase),
+.input-box:not([readonly]):not(.no-uppercase),
+.edit-box:not([readonly]):not(.no-uppercase) {
+    text-transform: uppercase;
+}
