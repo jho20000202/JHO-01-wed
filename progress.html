@@ -70,8 +70,8 @@
 
   <!-- 搜尋與排序 -->
   <div class="controls-area" style="width: 92%; margin: 0 auto 20px auto; display: flex; gap: 10px; flex-wrap: wrap;">
-    <input type="text" id="searchInput" placeholder="搜尋構件編號或位置..."
-      style="flex: 1; padding: 14px; background: #1f1f1f; border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 16px;">
+    <input type="text" id="searchInput" placeholder="搜尋構件編號或位置..." oninput="this.value = this.value.toUpperCase()"
+      style="flex: 1; padding: 14px; background: #1f1f1f; border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 16px; text-transform: uppercase;">
 
     <select id="sortSelect"
       style="padding: 14px; background: #1f1f1f; border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 16px;">
@@ -170,13 +170,13 @@
         let usedTime = null;
 
         if (actualRec) {
-          // For received items, use used_at as the received timestamp
-          if (actualRec.status === 'received' && actualRec.used_at) {
-            receivedTime = actualRec.used_at;
+          // For received items, use received_at as the received timestamp
+          if (actualRec.status === 'received' && actualRec.received_at) {
+            receivedTime = actualRec.received_at;
           }
           // For used items, they were also received, so show both times
-          if (actualRec.status === 'used' && actualRec.used_at) {
-            receivedTime = actualRec.used_at; // Same time for now, or could track separately
+          if (actualRec.status === 'used') {
+            receivedTime = actualRec.received_at || actualRec.used_at; // Use received_at if available, fallback to used_at
             usedTime = actualRec.used_at;
           }
         }
